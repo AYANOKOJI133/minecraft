@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Voxel Builder 3D - Mobile & PC</title>
+    <!-- Critical for Mobile: Prevents zooming and handles the notch/screen edges -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Voxel Builder 3D - Fixed Mobile</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -12,17 +13,22 @@
             --ui-border: 2px solid rgba(255, 255, 255, 0.4);
             --selected: #ffeb3b;
             --mobile-btn-bg: rgba(255, 255, 255, 0.2);
-            --mobile-btn-active: rgba(255, 255, 255, 0.4);
+            --mobile-btn-active: rgba(255, 255, 255, 0.5);
         }
 
-        body {
+        html, body {
             margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
             background-color: #87CEEB;
             font-family: 'VT323', monospace;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none; /* Prevents browser zooming/scrolling */
+            /* Critical: Stop browser from handling swipes */
+            touch-action: none; 
+            overscroll-behavior: none;
         }
 
         #game-container {
@@ -163,10 +169,11 @@
             pointer-events: auto;
             z-index: 20;
             text-align: center;
+            touch-action: none;
         }
         #menu h1 { font-size: 48px; margin: 0 0 10px 0; text-shadow: 4px 4px 0 #000; color: #4CAF50; letter-spacing: 2px; }
         #menu p { font-size: 20px; line-height: 1.4; margin: 5px 0; color: #ddd; max-width: 80%; }
-        #start-btn { margin-top: 20px; padding: 15px 50px; font-family: 'VT323', monospace; font-size: 32px; background: #4CAF50; color: white; border: none; border-bottom: 6px solid #2E7D32; cursor: pointer; }
+        #start-btn { margin-top: 20px; padding: 15px 50px; font-family: 'VT323', monospace; font-size: 32px; background: #4CAF50; color: white; border: none; border-bottom: 6px solid #2E7D32; cursor: pointer; touch-action: manipulation; }
         #start-btn:active { transform: translateY(6px); border-bottom: 0; }
         .hidden { display: none !important; }
 
@@ -184,6 +191,7 @@
         .touch-zone {
             position: absolute;
             pointer-events: auto;
+            touch-action: none;
         }
 
         /* D-PAD (Left) */
@@ -201,8 +209,9 @@
             display: flex; justify-content: center; align-items: center;
             color: white; font-size: 24px;
             user-select: none;
+            touch-action: none;
         }
-        .dpad-btn:active, .dpad-btn.active { background: var(--mobile-btn-active); }
+        .dpad-btn:active, .dpad-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
         #btn-up { top: 0; left: 50%; transform: translateX(-50%); }
         #btn-down { bottom: 0; left: 50%; transform: translateX(-50%); }
         #btn-left { left: 0; top: 50%; transform: translateY(-50%); }
@@ -224,6 +233,7 @@
             font-weight: bold;
             display: flex; justify-content: center; align-items: center;
             text-align: center;
+            touch-action: none;
         }
         .action-btn:active, .action-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
         
@@ -244,15 +254,16 @@
             font-family: 'VT323', monospace;
             font-size: 18px;
             border-radius: 4px;
+            touch-action: manipulation;
         }
 
         /* Show mobile controls only on touch devices */
         @media (hover: none) and (pointer: coarse) {
             #mobile-controls { display: block; }
-            #weapon-bar { display: none; } /* Hide PC weapon bar */
+            #weapon-bar { display: none; }
             #weapon-view { bottom: auto; top: 60px; right: 10px; width: 80px; height: 80px; }
             #weapon-canvas { width: 80px; height: 80px; }
-            #hotbar { display: none; } /* Hide PC hotbar */
+            #hotbar { display: none; }
             #crosshair { width: 20px; height: 20px; }
         }
     </style>
@@ -356,7 +367,9 @@
         let rollOverMesh; 
         
         const materials = {};
-        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // Robust Mobile Detection
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
         // --- Texture Generator ---
         function createProceduralTexture(blockDef) {
@@ -431,7 +444,6 @@
             return texture;
         }
 
-        // --- Weapon Texture Drawer (Canvas) ---
         function drawWeaponTexture(weapon) {
             const canvas = document.getElementById('weapon-canvas');
             const ctx = canvas.getContext('2d');
@@ -441,13 +453,13 @@
             ctx.clearRect(0, 0, w, h);
             const pSize = 8;
             
-            if (weapon.id === 0) { // Fist
+            if (weapon.id === 0) { 
                 ctx.fillStyle = '#dcbfa6';
                 ctx.fillRect(w/2 - pSize/2, h/2 - pSize/2, pSize, pSize);
                 ctx.fillStyle = '#cca080';
                 ctx.fillRect(w/2 - pSize/2 + 2, h/2 - pSize/2 + 2, pSize/2, pSize/2);
             }
-            else if (weapon.id === 1) { // Sword
+            else if (weapon.id === 1) {
                 ctx.fillStyle = '#5c4033';
                 ctx.fillRect(w/2 - 2, h/2, 4, 40);
                 ctx.fillStyle = '#a0a0a0';
@@ -457,7 +469,7 @@
                 ctx.fillStyle = 'rgba(255,255,255,0.5)';
                 ctx.fillRect(w/2 - 6, h/2 - 38, 2, 30);
             }
-            else if (weapon.id === 2) { // Bow
+            else if (weapon.id === 2) {
                 ctx.fillStyle = '#5c4033';
                 ctx.beginPath();
                 ctx.arc(w/2, h/2, 20, Math.PI, 0, Math.PI, false);
@@ -471,14 +483,14 @@
                 ctx.strokeStyle = '#eee';
                 ctx.stroke();
             }
-            else if (weapon.id === 3) { // Axe
+            else if (weapon.id === 3) {
                 ctx.fillStyle = '#5c4033';
                 ctx.fillRect(w/2 - 2, h/2, 4, 40);
                 ctx.fillStyle = '#707070';
                 ctx.fillRect(w/2 - 8, h/2 - 45, 16, 10);
                 ctx.fillRect(w/2 - 6, h/2 - 55, 12, 10);
             }
-            else if (weapon.id === 4) { // Spear
+            else if (weapon.id === 4) {
                 ctx.fillStyle = '#5c4033';
                 ctx.fillRect(w/2 - 2, h/2 - 10, 4, 50);
                 ctx.fillStyle = '#a0a0a0';
@@ -490,7 +502,6 @@
             }
         }
 
-        // --- Projectile System ---
         class Arrow {
             constructor(position, direction, damage, type) {
                 this.damage = damage;
@@ -561,7 +572,6 @@
             }
         }
 
-        // --- Mob System ---
         class Mob {
             constructor(type, x, z) {
                 this.type = type;
@@ -779,7 +789,6 @@
             controls = new PointerLockControls(camera, document.body);
             scene.add(controls.getObject());
 
-            // UI Handling
             const menu = document.getElementById('menu');
             const startBtn = document.getElementById('start-btn');
             
@@ -788,7 +797,6 @@
                 document.getElementById('mobile-instructions').classList.remove('hidden');
                 startBtn.addEventListener('click', () => {
                     menu.classList.add('hidden');
-                    // Don't lock pointer on mobile
                 });
             } else {
                 startBtn.addEventListener('click', () => controls.lock());
@@ -805,20 +813,18 @@
             scene.add(rollOverMesh);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for mobile performance
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.getElementById('game-container').appendChild(renderer.domElement);
 
-            // Event Listeners
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
             document.addEventListener('mousedown', onMouseClick);
             document.addEventListener('wheel', onMouseWheel);
             window.addEventListener('resize', onWindowResize);
 
-            // Mobile Event Listeners
             if(isMobile) setupTouchControls();
 
             initMaterials();
@@ -829,59 +835,71 @@
             animate();
         }
 
-        // --- Mobile Touch Logic ---
+        // --- Mobile Touch Logic (Fixed) ---
         function setupTouchControls() {
             const container = document.getElementById('game-container');
             let touchStartX = 0;
             let touchStartY = 0;
-            let isTouchingLook = false;
 
             // 1. Camera Look (Touch anywhere except buttons)
             container.addEventListener('touchstart', (e) => {
-                // Ignore if touching a UI button
                 if(e.target.closest('.touch-zone')) return;
                 
-                isTouchingLook = true;
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
             }, {passive: false});
 
             container.addEventListener('touchmove', (e) => {
-                if(!isTouchingLook) return;
+                // Only handle look if we are not touching a button
+                if(e.target.closest('.touch-zone')) return;
+
                 const touch = e.touches[0];
                 const deltaX = touch.clientX - touchStartX;
                 const deltaY = touch.clientY - touchStartY;
 
-                // Rotate camera
+                // SENSITIVITY
                 const sensitivity = 0.005;
-                camera.rotation.y -= deltaX * sensitivity;
-                
-                // Limit up/down
-                // Note: Since we aren't using PointerLockControls rotation directly on mobile,
-                // we manipulate the camera object or the controls object Euler order.
-                // PointerLockControls wraps the camera, so we rotate the Yaw (pitch) object if possible, 
-                // or just rotate the camera directly if pitch/yaw separation is handled.
-                // Simpler: Rotate the object inside controls (the camera).
-                
-                // Manual pitch limit
-                const currentRotX = camera.rotation.x;
+
+                // Rotate the BODY (Pivot) for Left/Right
+                // This fixes the bug where walking forward didn't match the view direction
+                const controlsObj = controls.getObject();
+                controlsObj.rotation.y -= deltaX * sensitivity;
+
+                // Rotate the HEAD (Camera) for Up/Down
                 camera.rotation.x -= deltaY * sensitivity;
+                
+                // Clamp Pitch
                 camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
 
                 touchStartX = touch.clientX;
                 touchStartY = touch.clientY;
+                
+                // Stop page scrolling
                 e.preventDefault();
             }, {passive: false});
 
             container.addEventListener('touchend', () => {
-                isTouchingLook = false;
+                // Optional: Reset logic if needed
             });
 
             // 2. D-Pad Movement
             const bindBtn = (id, callbackStart, callbackEnd) => {
                 const el = document.getElementById(id);
-                el.addEventListener('touchstart', (e) => { e.preventDefault(); callbackStart(); el.classList.add('active'); });
-                el.addEventListener('touchend', (e) => { e.preventDefault(); callbackEnd(); el.classList.remove('active'); });
+                el.addEventListener('touchstart', (e) => { 
+                    e.preventDefault(); 
+                    callbackStart(); 
+                    el.classList.add('active'); 
+                }, {passive: false});
+                el.addEventListener('touchend', (e) => { 
+                    e.preventDefault(); 
+                    callbackEnd(); 
+                    el.classList.remove('active'); 
+                });
+                el.addEventListener('touchcancel', (e) => { 
+                    e.preventDefault(); 
+                    callbackEnd(); 
+                    el.classList.remove('active'); 
+                });
             };
 
             bindBtn('btn-up', () => moveForward = true, () => moveForward = false);
@@ -897,14 +915,8 @@
                 }
             }, () => {});
 
-            // Simulate Mouse Clicks
-            bindBtn('btn-attack', () => {
-                simulateClick(0); // Left Click
-            }, () => {});
-
-            bindBtn('btn-build', () => {
-                simulateClick(2); // Right Click
-            }, () => {});
+            bindBtn('btn-attack', () => { simulateClick(0); }, () => {});
+            bindBtn('btn-build', () => { simulateClick(2); }, () => {});
 
             // 4. Inventory Buttons
             document.getElementById('m-switch-weapon').addEventListener('click', () => {
@@ -918,73 +930,69 @@
             });
         }
 
-        // Helper for mobile buttons to trigger game logic
         function simulateClick(button) {
-            if (controls.isLocked || isMobile) {
-                // We call the logic directly instead of faking a DOM event
-                // because the logic depends on raycasting which is updated every frame
-                const weapon = WEAPONS[selectedWeaponIndex];
+            // Direct logic call for mobile buttons
+            const weapon = WEAPONS[selectedWeaponIndex];
 
-                if (weapon.type === 'ranged') {
-                    if (button === 0) {
-                        const dir = new THREE.Vector3();
-                        camera.getWorldDirection(dir);
-                        projectiles.push(new Arrow(camera.position.clone(), dir, weapon.damage, 'arrow'));
-                    }
-                    return;
+            if (weapon.type === 'ranged') {
+                if (button === 0) {
+                    const dir = new THREE.Vector3();
+                    camera.getWorldDirection(dir);
+                    projectiles.push(new Arrow(camera.position.clone(), dir, weapon.damage, 'arrow'));
                 }
+                return;
+            }
 
-                if (weapon.type === 'tool') {
-                    if (button === 0) {
-                        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                        const intersects = raycaster.intersectObjects(objects, true);
-                        if (intersects.length > 0) {
-                            scene.remove(intersects[0].object);
-                            const index = objects.indexOf(intersects[0].object);
-                            if (index > -1) objects.splice(index, 1);
-                        }
-                    }
-                    return;
-                }
-
-                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                const intersectObjects = [...objects];
-                mobs.forEach(m => intersectObjects.push(m.mesh));
-
-                const intersects = raycaster.intersectObjects(intersectObjects, true); 
-
-                if (intersects.length > 0) {
-                    const intersect = intersects[0];
-                    
-                    let object = intersect.object;
-                    while(object.parent && object.parent.type !== 'Scene') {
-                        object = object.parent;
-                    }
-                    
-                    if (object.userData && object.userData.type === 'mob') {
-                        if (button === 0) {
-                            object.userData.mobRef.hit(weapon.damage); 
-                        }
-                        return; 
-                    }
-
-                    if (button === 0) {
-                        scene.remove(intersect.object);
-                        const index = objects.indexOf(intersect.object);
+            if (weapon.type === 'tool') {
+                if (button === 0) {
+                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                    const intersects = raycaster.intersectObjects(objects, true);
+                    if (intersects.length > 0) {
+                        scene.remove(intersects[0].object);
+                        const index = objects.indexOf(intersects[0].object);
                         if (index > -1) objects.splice(index, 1);
-                    } else if (button === 2) {
-                        const voxelPos = new THREE.Vector3();
-                        voxelPos.copy(intersect.object.position).add(intersect.face.normal);
-                        
-                        const playerPos = controls.getObject().position;
-                        if (Math.abs(voxelPos.x - playerPos.x) < 0.8 &&
-                            Math.abs(voxelPos.z - playerPos.z) < 0.8 &&
-                            (voxelPos.y - playerPos.y) < 0.5 && 
-                            (voxelPos.y - playerPos.y) > -2.0) {
-                            return;
-                        }
-                        addBlock(voxelPos);
                     }
+                }
+                return;
+            }
+
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersectObjects = [...objects];
+            mobs.forEach(m => intersectObjects.push(m.mesh));
+
+            const intersects = raycaster.intersectObjects(intersectObjects, true); 
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                
+                let object = intersect.object;
+                while(object.parent && object.parent.type !== 'Scene') {
+                    object = object.parent;
+                }
+                
+                if (object.userData && object.userData.type === 'mob') {
+                    if (button === 0) {
+                        object.userData.mobRef.hit(weapon.damage); 
+                    }
+                    return; 
+                }
+
+                if (button === 0) {
+                    scene.remove(intersect.object);
+                    const index = objects.indexOf(intersect.object);
+                    if (index > -1) objects.splice(index, 1);
+                } else if (button === 2) {
+                    const voxelPos = new THREE.Vector3();
+                    voxelPos.copy(intersect.object.position).add(intersect.face.normal);
+                    
+                    const playerPos = controls.getObject().position;
+                    if (Math.abs(voxelPos.x - playerPos.x) < 0.8 &&
+                        Math.abs(voxelPos.z - playerPos.z) < 0.8 &&
+                        (voxelPos.y - playerPos.y) < 0.5 && 
+                        (voxelPos.y - playerPos.y) > -2.0) {
+                        return;
+                    }
+                    addBlock(voxelPos);
                 }
             }
         }
@@ -1150,10 +1158,6 @@
         function onMouseClick(event) {
             if (!controls.isLocked && !isMobile) return;
 
-            // Mobile calls simulateClick directly, but PC goes here
-            // Logic is duplicated to keep separation clear or we could unify.
-            // For simplicity, let's keep the PC logic here.
-
             const weapon = WEAPONS[selectedWeaponIndex];
 
             if (weapon.type === 'ranged') {
@@ -1293,12 +1297,10 @@
             const time = performance.now();
             const delta = Math.min((time - prevTime) / 1000, 0.1);
 
-            // Update Projectiles
             for(let i = projectiles.length - 1; i >= 0; i--) {
                 projectiles[i].update(delta);
             }
 
-            // Update Mobs
             mobs.forEach(mob => mob.update(delta));
 
             if (controls.isLocked === true || isMobile) {

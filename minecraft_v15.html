@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voxel Builder 3D - Mobile & PC</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        :root {
+            --ui-bg: rgba(0, 0, 0, 0.7);
+            --ui-border: 2px solid rgba(255, 255, 255, 0.4);
+            --selected: #ffeb3b;
+            --mobile-btn-bg: rgba(255, 255, 255, 0.2);
+            --mobile-btn-active: rgba(255, 255, 255, 0.4);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            font-family: 'VT323', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevents browser zooming/scrolling */
+        }
+
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        /* --- Weapon View --- */
+        #weapon-view {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 128px;
+            height: 128px;
+            image-rendering: pixelated;
+            z-index: 15;
+            pointer-events: none;
+        }
+        #weapon-canvas {
+            width: 128px;
+            height: 128px;
+            image-rendering: pixelated;
+        }
+
+        /* --- Crosshair --- */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 24px;
+            height: 24px;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.9);
+            transition: background 0.2s;
+        }
+        #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+        #crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+
+        /* --- PC HUD --- */
+        #hotbar {
+            align-self: center;
+            margin-bottom: 20px;
+            background: var(--ui-bg);
+            border: var(--ui-border);
+            padding: 8px;
+            border-radius: 6px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            max-width: 90%;
+            justify-content: center;
+        }
+
+        #weapon-bar {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--ui-bg);
+            border: var(--ui-border);
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+
+        .weapon-slot {
+            display: flex;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            transition: all 0.1s ease;
+        }
+        .weapon-slot.active { background: rgba(50, 50, 50, 0.8); border-color: var(--selected); transform: scale(1.05); box-shadow: 0 0 5px var(--selected); }
+        .weapon-key { font-size: 14px; color: #aaa; margin-right: 10px; font-weight: bold; }
+
+        .slot {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 16px;
+            position: relative;
+            background: rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+        }
+        .slot.active { border-color: var(--selected); transform: scale(1.2); background: rgba(50, 50, 50, 0.8); box-shadow: 0 0 10px var(--selected); z-index: 1; }
+        .slot-key { position: absolute; top: 1px; left: 2px; font-size: 12px; color: #aaa; font-weight: bold; }
+        .slot-preview { width: 24px; height: 24px; border: 1px solid rgba(0,0,0,0.5); }
+
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            pointer-events: auto;
+            z-index: 20;
+            text-align: center;
+        }
+        #menu h1 { font-size: 48px; margin: 0 0 10px 0; text-shadow: 4px 4px 0 #000; color: #4CAF50; letter-spacing: 2px; }
+        #menu p { font-size: 20px; line-height: 1.4; margin: 5px 0; color: #ddd; max-width: 80%; }
+        #start-btn { margin-top: 20px; padding: 15px 50px; font-family: 'VT323', monospace; font-size: 32px; background: #4CAF50; color: white; border: none; border-bottom: 6px solid #2E7D32; cursor: pointer; }
+        #start-btn:active { transform: translateY(6px); border-bottom: 0; }
+        .hidden { display: none !important; }
+
+        #hud { position: absolute; top: 15px; left: 15px; color: white; font-size: 20px; text-shadow: 2px 2px 0 #000; pointer-events: none; }
+
+        /* --- MOBILE CONTROLS --- */
+        #mobile-controls {
+            display: none; /* Hidden by default on PC */
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 12;
+            pointer-events: none; /* Let touches pass through to specific buttons */
+        }
+
+        .touch-zone {
+            position: absolute;
+            pointer-events: auto;
+        }
+
+        /* D-PAD (Left) */
+        #dpad-container {
+            bottom: 40px; left: 20px;
+            width: 160px; height: 160px;
+        }
+        .dpad-btn {
+            position: absolute;
+            width: 50px; height: 50px;
+            background: var(--mobile-btn-bg);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            backdrop-filter: blur(2px);
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-size: 24px;
+            user-select: none;
+        }
+        .dpad-btn:active, .dpad-btn.active { background: var(--mobile-btn-active); }
+        #btn-up { top: 0; left: 50%; transform: translateX(-50%); }
+        #btn-down { bottom: 0; left: 50%; transform: translateX(-50%); }
+        #btn-left { left: 0; top: 50%; transform: translateY(-50%); }
+        #btn-right { right: 0; top: 50%; transform: translateY(-50%); }
+
+        /* Action Buttons (Right) */
+        #actions-container {
+            bottom: 40px; right: 20px;
+            width: 140px; height: 160px;
+            display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+        }
+        .action-btn {
+            width: 60px; height: 60px;
+            background: var(--mobile-btn-bg);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            backdrop-filter: blur(2px);
+            color: white; font-size: 14px;
+            font-weight: bold;
+            display: flex; justify-content: center; align-items: center;
+            text-align: center;
+        }
+        .action-btn:active, .action-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
+        
+        .btn-attack { background: rgba(255, 50, 50, 0.3); border-color: rgba(255, 100, 100, 0.5); }
+        .btn-build { background: rgba(50, 255, 50, 0.3); border-color: rgba(100, 255, 100, 0.5); }
+
+        /* Mobile Top Bar */
+        #mobile-top-bar {
+            position: absolute;
+            top: 10px; right: 10px;
+            display: flex; gap: 10px;
+        }
+        .mobile-menu-btn {
+            padding: 8px 12px;
+            background: var(--ui-bg);
+            border: 1px solid white;
+            color: white;
+            font-family: 'VT323', monospace;
+            font-size: 18px;
+            border-radius: 4px;
+        }
+
+        /* Show mobile controls only on touch devices */
+        @media (hover: none) and (pointer: coarse) {
+            #mobile-controls { display: block; }
+            #weapon-bar { display: none; } /* Hide PC weapon bar */
+            #weapon-view { bottom: auto; top: 60px; right: 10px; width: 80px; height: 80px; }
+            #weapon-canvas { width: 80px; height: 80px; }
+            #hotbar { display: none; } /* Hide PC hotbar */
+            #crosshair { width: 20px; height: 20px; }
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="game-container"></div>
+
+    <!-- Mobile Touch UI (Hidden on PC) -->
+    <div id="mobile-controls">
+        <div id="mobile-top-bar" class="touch-zone">
+            <button id="m-switch-weapon" class="mobile-menu-btn">WEAPON</button>
+            <button id="m-switch-block" class="mobile-menu-btn">BLOCK</button>
+        </div>
+
+        <div id="dpad-container" class="touch-zone">
+            <div id="btn-up" class="dpad-btn">▲</div>
+            <div id="btn-down" class="dpad-btn">▼</div>
+            <div id="btn-left" class="dpad-btn">◀</div>
+            <div id="btn-right" class="dpad-btn">▶</div>
+        </div>
+
+        <div id="actions-container" class="touch-zone">
+            <div id="btn-jump" class="action-btn">JUMP</div>
+            <div id="btn-attack" class="action-btn btn-attack">ATK</div>
+            <div id="btn-build" class="action-btn btn-build">BLD</div>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="hud">Weapon: Fist</div>
+        <div id="crosshair"></div>
+        
+        <!-- PC UI Elements -->
+        <div id="hotbar"></div>
+        <div id="weapon-view"><canvas id="weapon-canvas" width="128" height="128"></canvas></div>
+        <div id="weapon-bar"></div> 
+    </div>
+
+    <div id="menu">
+        <h1>VOXEL BUILDER</h1>
+        <p id="pc-instructions">WASD to Move | SHIFT to Sprint | SCROLL: Blocks | NUMPAD: Weapons<br>Left Click: Attack | Right Click: Build</p>
+        <p id="mobile-instructions" class="hidden">Touch & Drag to Look<br>Use Buttons to Move/Act</p>
+        <button id="start-btn">START GAME</button>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- Config ---
+        const BLOCK_SIZE = 1;
+        const CHUNK_SIZE = 64; 
+        
+        const BLOCKS = [
+            { id: 1, name: 'Grass', color: '#5C9E63', sideColor: '#5C4033', style: 'grass' },
+            { id: 2, name: 'Stone', color: '#7d7d7d', style: 'stone' },
+            { id: 3, name: 'Dirt', color: '#5C4033', style: 'dirt' },
+            { id: 4, name: 'Wood', color: '#654321', style: 'wood' },
+            { id: 5, name: 'Leaves', color: '#4a7c32', style: 'leaves' },
+            { id: 6, name: 'Bricks', color: '#A05A2C', style: 'bricks' },
+            { id: 7, name: 'Sand', color: '#C2B280', style: 'sand' },
+            { id: 8, name: 'Gold', color: '#FFD700', style: 'gold' },
+            { id: 9, name: 'Diamond', color: '#00FFFF', style: 'diamond' },
+            { id: 10, name: 'Obsidian', color: '#1a1028', style: 'obsidian' }
+        ];
+
+        const WEAPONS = [
+            { id: 0, name: 'Fist', damage: 25, range: 4, speed: 0, type: 'melee', color: '#ffffff' },
+            { id: 1, name: 'Sword', damage: 50, range: 5, speed: 0, type: 'melee', color: '#ff4444' },
+            { id: 2, name: 'Bow', damage: 30, range: 10, speed: 0, type: 'ranged', color: '#44ff44' },
+            { id: 3, name: 'Axe', damage: 0, range: 5, speed: 0, type: 'tool', color: '#ffaa00' },
+            { id: 4, name: 'Spear', damage: 40, range: 8, speed: 0, type: 'melee', color: '#4488ff' }
+        ];
+
+        let camera, scene, renderer, controls;
+        let raycaster;
+        const objects = [];
+        const mobs = []; 
+        const projectiles = []; 
+        let moveForward = false;
+        let moveBackward = false;
+        let moveLeft = false;
+        let moveRight = false;
+        let sprint = false;
+        let canJump = false;
+        
+        let prevTime = performance.now();
+        const velocity = new THREE.Vector3();
+        
+        let selectedBlockIndex = 0;
+        let selectedWeaponIndex = 0;
+        let rollOverMesh; 
+        
+        const materials = {};
+        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // --- Texture Generator ---
+        function createProceduralTexture(blockDef) {
+            const size = 64;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = blockDef.color;
+            ctx.fillRect(0, 0, size, size);
+
+            const drawNoise = (amount, color = 'rgba(0,0,0,0.15)') => {
+                ctx.fillStyle = color;
+                for(let i=0; i<amount; i++) {
+                    const s = Math.random() * 4 + 1;
+                    ctx.fillRect(Math.random()*size, Math.random()*size, s, s);
+                }
+            };
+
+            if (blockDef.style === 'grass') {
+                drawNoise(150, 'rgba(0,0,0,0.1)');
+                ctx.fillStyle = 'rgba(100, 200, 100, 0.2)';
+                for(let i=0; i<50; i++) ctx.fillRect(Math.random()*size, Math.random()*size, 2, 4);
+            } 
+            else if (blockDef.style === 'dirt') {
+                drawNoise(200, 'rgba(0,0,0,0.15)');
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                for(let i=0; i<20; i++) ctx.fillRect(Math.random()*size, Math.random()*size, 3, 3);
+            }
+            else if (blockDef.style === 'stone') {
+                drawNoise(300, 'rgba(0,0,0,0.2)');
+                ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                ctx.beginPath();
+                ctx.moveTo(10, 10); ctx.lineTo(30, 30); ctx.lineTo(50, 20);
+                ctx.stroke();
+            }
+            else if (blockDef.style === 'wood') {
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                for(let i=0; i<8; i++) ctx.fillRect(Math.random()*size, 0, 2 + Math.random()*2, size);
+                drawNoise(100);
+            }
+            else if (blockDef.style === 'leaves') {
+                drawNoise(400, 'rgba(0,0,0,0.3)');
+                ctx.fillStyle = 'rgba(0,50,0,0.3)';
+                for(let i=0; i<50; i++) ctx.fillRect(Math.random()*size, Math.random()*size, 6, 6);
+            }
+            else if (blockDef.style === 'bricks') {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; 
+                ctx.fillRect(0, 15, size, 2); ctx.fillRect(0, 31, size, 2); ctx.fillRect(0, 47, size, 2);
+                ctx.fillRect(15, 0, 2, 15); ctx.fillRect(31, 0, 2, 15); ctx.fillRect(47, 0, 2, 15);
+                ctx.fillRect(7, 16, 2, 15); ctx.fillRect(23, 16, 2, 15); ctx.fillRect(39, 16, 2, 15); ctx.fillRect(55, 16, 2, 15);
+            }
+            else if (blockDef.style === 'sand') drawNoise(200, 'rgba(150,100,0,0.1)');
+            else if (blockDef.style === 'gold' || blockDef.style === 'diamond') {
+                drawNoise(50);
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                for(let i=0; i<30; i++) {
+                    const x = Math.random()*size, y = Math.random()*size;
+                    ctx.fillRect(x, y, 2, 2); ctx.fillRect(x+1, y+1, 2, 2);
+                }
+            }
+            else if (blockDef.style === 'obsidian') {
+                drawNoise(500, 'rgba(0,0,0,0.5)');
+                ctx.fillStyle = 'rgba(50,0,50,0.1)';
+                ctx.fillRect(10,10, size/2, size/2);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.NearestFilter;
+            return texture;
+        }
+
+        // --- Weapon Texture Drawer (Canvas) ---
+        function drawWeaponTexture(weapon) {
+            const canvas = document.getElementById('weapon-canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+            const pSize = 8;
+            
+            if (weapon.id === 0) { // Fist
+                ctx.fillStyle = '#dcbfa6';
+                ctx.fillRect(w/2 - pSize/2, h/2 - pSize/2, pSize, pSize);
+                ctx.fillStyle = '#cca080';
+                ctx.fillRect(w/2 - pSize/2 + 2, h/2 - pSize/2 + 2, pSize/2, pSize/2);
+            }
+            else if (weapon.id === 1) { // Sword
+                ctx.fillStyle = '#5c4033';
+                ctx.fillRect(w/2 - 2, h/2, 4, 40);
+                ctx.fillStyle = '#a0a0a0';
+                ctx.fillRect(w/2 - 6, h/2 - 40, 12, 40);
+                ctx.fillStyle = '#8b4513';
+                ctx.fillRect(w/2 - 4, h/2 + 2, 8, 4);
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.fillRect(w/2 - 6, h/2 - 38, 2, 30);
+            }
+            else if (weapon.id === 2) { // Bow
+                ctx.fillStyle = '#5c4033';
+                ctx.beginPath();
+                ctx.arc(w/2, h/2, 20, Math.PI, 0, Math.PI, false);
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#8b4513';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(w/2 - 20, h/2);
+                ctx.quadraticCurveTo(w/2, h/2 + 20, w/2 + 20, h/2);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#eee';
+                ctx.stroke();
+            }
+            else if (weapon.id === 3) { // Axe
+                ctx.fillStyle = '#5c4033';
+                ctx.fillRect(w/2 - 2, h/2, 4, 40);
+                ctx.fillStyle = '#707070';
+                ctx.fillRect(w/2 - 8, h/2 - 45, 16, 10);
+                ctx.fillRect(w/2 - 6, h/2 - 55, 12, 10);
+            }
+            else if (weapon.id === 4) { // Spear
+                ctx.fillStyle = '#5c4033';
+                ctx.fillRect(w/2 - 2, h/2 - 10, 4, 50);
+                ctx.fillStyle = '#a0a0a0';
+                ctx.beginPath();
+                ctx.moveTo(w/2 - 3, h/2 - 50);
+                ctx.lineTo(w/2, h/2 - 70);
+                ctx.lineTo(w/2 + 3, h/2 - 50);
+                ctx.fill();
+            }
+        }
+
+        // --- Projectile System ---
+        class Arrow {
+            constructor(position, direction, damage, type) {
+                this.damage = damage;
+                this.lifeTime = 3.0; 
+                this.mesh = new THREE.Group();
+                this.mesh.position.copy(position);
+
+                const shaft = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, 0.05, 0.6),
+                    new THREE.MeshLambertMaterial({ color: 0x5C4033 })
+                );
+                this.mesh.add(shaft);
+                    
+                const head = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.1, 0.3, 4),
+                    new THREE.MeshLambertMaterial({ color: 0x888888 })
+                );
+                head.position.set(0, 0.3, 0);
+                head.rotation.x = -Math.PI / 2; 
+                this.mesh.add(head);
+
+                const featherGeo = new THREE.BoxGeometry(0.05, 0.2, 0.01);
+                const featherMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+                const feather2Mat = new THREE.MeshLambertMaterial({ color: 0x4444ff });
+
+                const f1 = new THREE.Mesh(featherGeo, featherMat);
+                f1.position.set(0, 0.1, 0.05);
+                this.mesh.add(f1);
+                    
+                const f2 = new THREE.Mesh(featherGeo, feather2Mat);
+                f2.position.set(0, -0.1, 0.05);
+                this.mesh.add(f2);
+
+                this.velocity = direction.clone().normalize().multiplyScalar(40);
+                scene.add(this.mesh);
+                this.updateOrientation();
+            }
+
+            updateOrientation() {
+                const target = this.mesh.position.clone().add(this.velocity);
+                this.mesh.lookAt(target);
+            }
+
+            update(delta) {
+                this.lifeTime -= delta;
+                this.mesh.position.add(this.velocity.clone().multiplyScalar(delta));
+                this.updateOrientation();
+
+                const mobRay = new THREE.Raycaster(this.mesh.position, this.velocity.clone().normalize(), 0, 0.5);
+                const hits = mobRay.intersectObjects(mobs.map(m => m.mesh), true);
+
+                if (hits.length > 0) {
+                    let object = hits[0].object;
+                    while(object.parent && object.parent.type !== 'Scene') object = object.parent;
+                    if (object.userData && object.userData.type === 'mob') {
+                        object.userData.mobRef.hit(this.damage);
+                    }
+                    this.kill();
+                } else if (this.lifeTime <= 0) {
+                    this.kill();
+                }
+            }
+
+            kill() {
+                scene.remove(this.mesh);
+                const idx = projectiles.indexOf(this);
+                if(idx > -1) projectiles.splice(idx, 1);
+            }
+        }
+
+        // --- Mob System ---
+        class Mob {
+            constructor(type, x, z) {
+                this.type = type;
+                this.mesh = new THREE.Group();
+                this.mesh.position.set(x, 0, z);
+                
+                this.velocity = new THREE.Vector3();
+                this.onGround = false;
+                this.speed = 0.02 + Math.random() * 0.01;
+                this.state = 'idle'; 
+                this.timer = 0;
+                this.bobOffset = Math.random() * 100;
+                
+                this.maxHealth = 100;
+                this.health = 100;
+                this.isDead = false;
+                this.deathTimer = 0;
+                this.meshParts = []; 
+                if(type === 'chicken') this.feetHeight = 0.15; 
+                if(type === 'cow') this.feetHeight = 0.35; 
+                if(type === 'sheep') this.feetHeight = 0.3;  
+
+                const whiteMat = new THREE.MeshLambertMaterial({ color: 0xffffff }).clone();
+                const blackMat = new THREE.MeshLambertMaterial({ color: 0x111111 }).clone();
+                const greyMat = new THREE.MeshLambertMaterial({ color: 0xaaaaaa }).clone();
+                const orangeMat = new THREE.MeshLambertMaterial({ color: 0xffaa00 }).clone();
+                const redMat = new THREE.MeshLambertMaterial({ color: 0xcc0000 }).clone();
+                const pinkMat = new THREE.MeshLambertMaterial({ color: 0xffaaaa }).clone();
+
+                const addPart = (geo, mat, pos) => {
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.copy(pos);
+                    this.mesh.add(mesh);
+                    this.meshParts.push(mesh);
+                    mesh.userData.originalColor = mesh.material.color.clone();
+                    return mesh;
+                };
+
+                if (type === 'chicken') {
+                    addPart(new THREE.BoxGeometry(0.35, 0.35, 0.45), whiteMat, new THREE.Vector3(0, 0.3, 0));
+                    addPart(new THREE.BoxGeometry(0.1, 0.25, 0.35), whiteMat, new THREE.Vector3(0.2, 0.3, 0));
+                    addPart(new THREE.BoxGeometry(0.1, 0.25, 0.35), whiteMat, new THREE.Vector3(-0.2, 0.3, 0));
+                    addPart(new THREE.BoxGeometry(0.25, 0.25, 0.25), whiteMat, new THREE.Vector3(0, 0.55, -0.25));
+                    addPart(new THREE.BoxGeometry(0.06, 0.1, 0.06), redMat, new THREE.Vector3(0, 0.7, -0.25));
+                    addPart(new THREE.BoxGeometry(0.04, 0.04, 0.1), orangeMat, new THREE.Vector3(0, 0.55, -0.4));
+                    addPart(new THREE.BoxGeometry(0.04, 0.08, 0.04), redMat, new THREE.Vector3(0, 0.45, -0.35));
+                    addPart(new THREE.BoxGeometry(0.03, 0.03, 0.03), blackMat, new THREE.Vector3(0.07, 0.58, -0.37));
+                    addPart(new THREE.BoxGeometry(0.03, 0.03, 0.03), blackMat, new THREE.Vector3(-0.07, 0.58, -0.37));
+                    addPart(new THREE.BoxGeometry(0.04, 0.15, 0.04), orangeMat, new THREE.Vector3(0.08, 0.1, 0));
+                    addPart(new THREE.BoxGeometry(0.04, 0.15, 0.04), orangeMat, new THREE.Vector3(-0.08, 0.1, 0));
+
+                } else if (type === 'cow') {
+                    addPart(new THREE.BoxGeometry(1.0, 0.9, 0.6), whiteMat, new THREE.Vector3(0, 0.85, 0));
+                    addPart(new THREE.BoxGeometry(0.3, 0.3, 0.61), blackMat, new THREE.Vector3(0.25, 1.0, 0));
+                    addPart(new THREE.BoxGeometry(0.4, 0.5, 0.61), blackMat, new THREE.Vector3(-0.3, 0.8, 0));
+                    addPart(new THREE.BoxGeometry(0.5, 0.5, 0.45), whiteMat, new THREE.Vector3(0, 1.25, -0.4));
+                    addPart(new THREE.BoxGeometry(0.3, 0.2, 0.1), pinkMat, new THREE.Vector3(0, 1.1, -0.68));
+                    addPart(new THREE.BoxGeometry(0.1, 0.1, 0.1), greyMat, new THREE.Vector3(0.2, 1.55, -0.45));
+                    addPart(new THREE.BoxGeometry(0.1, 0.1, 0.1), greyMat, new THREE.Vector3(-0.2, 1.55, -0.45));
+                    addPart(new THREE.BoxGeometry(0.05, 0.05, 0.05), blackMat, new THREE.Vector3(0.15, 1.3, -0.65));
+                    addPart(new THREE.BoxGeometry(0.05, 0.05, 0.05), blackMat, new THREE.Vector3(-0.15, 1.3, -0.65));
+                    const pos = [[0.3, 0.35, 0.2], [-0.3, 0.35, 0.2], [0.3, 0.35, -0.2], [-0.3, 0.35, -0.2]];
+                    pos.forEach(p => addPart(new THREE.BoxGeometry(0.15, 0.4, 0.15), whiteMat, new THREE.Vector3(...p)));
+
+                } else if (type === 'sheep') {
+                    addPart(new THREE.BoxGeometry(0.8, 0.8, 0.6), whiteMat, new THREE.Vector3(0, 0.7, 0));
+                    for(let i=0; i<6; i++) {
+                        const f = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), whiteMat);
+                        f.position.set((Math.random()-0.5)*0.8, 0.7 + (Math.random()-0.5)*0.5, (Math.random()-0.5)*0.6);
+                        this.mesh.add(f);
+                        this.meshParts.push(f);
+                        f.userData.originalColor = f.material.color.clone();
+                    }
+                    addPart(new THREE.BoxGeometry(0.35, 0.45, 0.35), greyMat, new THREE.Vector3(0, 0.85, -0.4));
+                    addPart(new THREE.BoxGeometry(0.05, 0.15, 0.05), pinkMat, new THREE.Vector3(0.15, 0.95, -0.35));
+                    addPart(new THREE.BoxGeometry(0.05, 0.15, 0.05), pinkMat, new THREE.Vector3(-0.15, 0.95, -0.35));
+                    addPart(new THREE.BoxGeometry(0.06, 0.06, 0.06), blackMat, new THREE.Vector3(0.1, 0.95, -0.6));
+                    addPart(new THREE.BoxGeometry(0.06, 0.06, 0.06), blackMat, new THREE.Vector3(-0.1, 0.95, -0.6));
+                    const pos = [[0.25, 0.3, 0.2], [-0.25, 0.3, 0.2], [0.25, 0.3, -0.2], [-0.25, 0.3, -0.2]];
+                    pos.forEach(p => addPart(new THREE.BoxGeometry(0.12, 0.3, 0.12), blackMat, new THREE.Vector3(...p)));
+                }
+
+                const fgGeo = new THREE.BoxGeometry(0.58, 0.06, 0.02);
+                const fgMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                this.healthFg = new THREE.Mesh(fgGeo, fgMat);
+                this.healthFg.position.set(0, 1.8, 0); 
+                this.mesh.add(this.healthFg);
+
+                this.mesh.userData = { type: 'mob', mobRef: this }; 
+                scene.add(this.mesh);
+                mobs.push(this);
+            }
+
+            update(delta) {
+                if (this.isDead) {
+                    this.deathTimer += delta;
+                    if (this.mesh.rotation.x < Math.PI/2) {
+                        this.mesh.rotation.x += 3 * delta;
+                    }
+                    if(this.deathTimer > 1.5) {
+                        scene.remove(this.mesh);
+                        const idx = mobs.indexOf(this);
+                        if(idx > -1) mobs.splice(idx, 1);
+                    }
+                    return;
+                }
+
+                this.timer += delta;
+                this.velocity.x *= 0.85;
+                this.velocity.z *= 0.85;
+
+                if (this.timer > 2 + Math.random()) {
+                    if (Math.random() > 0.5) {
+                        this.state = 'walk';
+                        this.mesh.rotation.y = Math.random() * Math.PI * 2;
+                        this.timer = 0;
+                    } else {
+                        this.state = 'idle';
+                        this.timer = 0;
+                    }
+                }
+
+                if (this.state === 'walk') {
+                    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.mesh.quaternion);
+                    const origin = this.mesh.position.clone();
+                    origin.y += 0.5; 
+                    const wallRay = new THREE.Raycaster(origin, dir, 0, 0.6);
+                    const hits = wallRay.intersectObjects(objects);
+                    
+                    if (hits.length === 0) {
+                        this.mesh.translateZ(-this.speed);
+                    } else {
+                        this.state = 'idle';
+                        this.timer = 0;
+                    }
+                }
+
+                this.mesh.position.x += this.velocity.x * delta * 10;
+                this.mesh.position.z += this.velocity.z * delta * 10;
+
+                const downRay = new THREE.Raycaster(this.mesh.position, new THREE.Vector3(0, -1, 0), 0, 10);
+                const groundHits = downRay.intersectObjects(objects);
+                
+                if (groundHits.length > 0) {
+                    const groundY = groundHits[0].point.y;
+                    this.mesh.position.y = groundY + this.feetHeight;
+                    this.velocity.y = 0;
+                } else {
+                    this.velocity.y -= 20 * delta;
+                    this.mesh.position.y += this.velocity.y * delta;
+                }
+
+                if (this.velocity.y === 0 && this.state === 'walk') {
+                     this.mesh.position.y += Math.abs(Math.sin(performance.now() * 0.005 + this.bobOffset)) * 0.05;
+                }
+
+                const camPos = camera.position.clone();
+                camPos.y = this.mesh.position.y + 1.8; 
+                this.healthFg.lookAt(camPos);
+            }
+
+            hit(amount) {
+                if (this.isDead) return;
+                this.health -= amount;
+                
+                const scale = Math.max(0, this.health / this.maxHealth);
+                this.healthFg.scale.x = scale;
+                const width = 0.58;
+                const shift = (width * (1 - scale)) / 2;
+                this.healthFg.position.x = -shift; 
+
+                if (this.health <= 0) {
+                    this.isDead = true;
+                } else {
+                    const dir = new THREE.Vector3();
+                    dir.subVectors(this.mesh.position, controls.getObject().position).normalize();
+                    dir.y = 0.1; 
+                    this.velocity.add(dir.multiplyScalar(1.2)); 
+
+                    this.meshParts.forEach(child => {
+                        child.material.color.setHex(0xff0000);
+                        
+                        setTimeout(() => {
+                            if (child && child.material && child.userData.originalColor) {
+                                child.material.color.copy(child.userData.originalColor);
+                            }
+                        }, 200);
+                    });
+                }
+            }
+        }
+
+        // --- Init ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 20, 80);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.y = 2;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(50, 100, 50);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            const d = 80;
+            dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
+            scene.add(dirLight);
+
+            controls = new PointerLockControls(camera, document.body);
+            scene.add(controls.getObject());
+
+            // UI Handling
+            const menu = document.getElementById('menu');
+            const startBtn = document.getElementById('start-btn');
+            
+            if(isMobile) {
+                document.getElementById('pc-instructions').classList.add('hidden');
+                document.getElementById('mobile-instructions').classList.remove('hidden');
+                startBtn.addEventListener('click', () => {
+                    menu.classList.add('hidden');
+                    // Don't lock pointer on mobile
+                });
+            } else {
+                startBtn.addEventListener('click', () => controls.lock());
+                controls.addEventListener('lock', () => menu.classList.add('hidden'));
+                controls.addEventListener('unlock', () => menu.classList.remove('hidden'));
+            }
+
+            raycaster = new THREE.Raycaster();
+            raycaster.far = 8; 
+
+            const rollOverGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
+            const rollOverMat = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true, opacity: 0.4, transparent: true });
+            rollOverMesh = new THREE.Mesh(rollOverGeo, rollOverMat);
+            scene.add(rollOverMesh);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // Event Listeners
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('mousedown', onMouseClick);
+            document.addEventListener('wheel', onMouseWheel);
+            window.addEventListener('resize', onWindowResize);
+
+            // Mobile Event Listeners
+            if(isMobile) setupTouchControls();
+
+            initMaterials();
+            initUI();
+            initWeaponsUI();
+            drawWeaponTexture(WEAPONS[0]);
+            generateWorld();
+            animate();
+        }
+
+        // --- Mobile Touch Logic ---
+        function setupTouchControls() {
+            const container = document.getElementById('game-container');
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let isTouchingLook = false;
+
+            // 1. Camera Look (Touch anywhere except buttons)
+            container.addEventListener('touchstart', (e) => {
+                // Ignore if touching a UI button
+                if(e.target.closest('.touch-zone')) return;
+                
+                isTouchingLook = true;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, {passive: false});
+
+            container.addEventListener('touchmove', (e) => {
+                if(!isTouchingLook) return;
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - touchStartX;
+                const deltaY = touch.clientY - touchStartY;
+
+                // Rotate camera
+                const sensitivity = 0.005;
+                camera.rotation.y -= deltaX * sensitivity;
+                
+                // Limit up/down
+                // Note: Since we aren't using PointerLockControls rotation directly on mobile,
+                // we manipulate the camera object or the controls object Euler order.
+                // PointerLockControls wraps the camera, so we rotate the Yaw (pitch) object if possible, 
+                // or just rotate the camera directly if pitch/yaw separation is handled.
+                // Simpler: Rotate the object inside controls (the camera).
+                
+                // Manual pitch limit
+                const currentRotX = camera.rotation.x;
+                camera.rotation.x -= deltaY * sensitivity;
+                camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                e.preventDefault();
+            }, {passive: false});
+
+            container.addEventListener('touchend', () => {
+                isTouchingLook = false;
+            });
+
+            // 2. D-Pad Movement
+            const bindBtn = (id, callbackStart, callbackEnd) => {
+                const el = document.getElementById(id);
+                el.addEventListener('touchstart', (e) => { e.preventDefault(); callbackStart(); el.classList.add('active'); });
+                el.addEventListener('touchend', (e) => { e.preventDefault(); callbackEnd(); el.classList.remove('active'); });
+            };
+
+            bindBtn('btn-up', () => moveForward = true, () => moveForward = false);
+            bindBtn('btn-down', () => moveBackward = true, () => moveBackward = false);
+            bindBtn('btn-left', () => moveLeft = true, () => moveLeft = false);
+            bindBtn('btn-right', () => moveRight = true, () => moveRight = false);
+
+            // 3. Action Buttons
+            bindBtn('btn-jump', () => {
+                if (canJump && velocity.y >= -0.1) {
+                    velocity.y = 12;
+                    canJump = false;
+                }
+            }, () => {});
+
+            // Simulate Mouse Clicks
+            bindBtn('btn-attack', () => {
+                simulateClick(0); // Left Click
+            }, () => {});
+
+            bindBtn('btn-build', () => {
+                simulateClick(2); // Right Click
+            }, () => {});
+
+            // 4. Inventory Buttons
+            document.getElementById('m-switch-weapon').addEventListener('click', () => {
+                selectedWeaponIndex = (selectedWeaponIndex + 1) % WEAPONS.length;
+                updateHUD(); updateWeaponUI();
+            });
+
+            document.getElementById('m-switch-block').addEventListener('click', () => {
+                selectedBlockIndex = (selectedBlockIndex + 1) % BLOCKS.length;
+                updateHUD();
+            });
+        }
+
+        // Helper for mobile buttons to trigger game logic
+        function simulateClick(button) {
+            if (controls.isLocked || isMobile) {
+                // We call the logic directly instead of faking a DOM event
+                // because the logic depends on raycasting which is updated every frame
+                const weapon = WEAPONS[selectedWeaponIndex];
+
+                if (weapon.type === 'ranged') {
+                    if (button === 0) {
+                        const dir = new THREE.Vector3();
+                        camera.getWorldDirection(dir);
+                        projectiles.push(new Arrow(camera.position.clone(), dir, weapon.damage, 'arrow'));
+                    }
+                    return;
+                }
+
+                if (weapon.type === 'tool') {
+                    if (button === 0) {
+                        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                        const intersects = raycaster.intersectObjects(objects, true);
+                        if (intersects.length > 0) {
+                            scene.remove(intersects[0].object);
+                            const index = objects.indexOf(intersects[0].object);
+                            if (index > -1) objects.splice(index, 1);
+                        }
+                    }
+                    return;
+                }
+
+                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                const intersectObjects = [...objects];
+                mobs.forEach(m => intersectObjects.push(m.mesh));
+
+                const intersects = raycaster.intersectObjects(intersectObjects, true); 
+
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+                    
+                    let object = intersect.object;
+                    while(object.parent && object.parent.type !== 'Scene') {
+                        object = object.parent;
+                    }
+                    
+                    if (object.userData && object.userData.type === 'mob') {
+                        if (button === 0) {
+                            object.userData.mobRef.hit(weapon.damage); 
+                        }
+                        return; 
+                    }
+
+                    if (button === 0) {
+                        scene.remove(intersect.object);
+                        const index = objects.indexOf(intersect.object);
+                        if (index > -1) objects.splice(index, 1);
+                    } else if (button === 2) {
+                        const voxelPos = new THREE.Vector3();
+                        voxelPos.copy(intersect.object.position).add(intersect.face.normal);
+                        
+                        const playerPos = controls.getObject().position;
+                        if (Math.abs(voxelPos.x - playerPos.x) < 0.8 &&
+                            Math.abs(voxelPos.z - playerPos.z) < 0.8 &&
+                            (voxelPos.y - playerPos.y) < 0.5 && 
+                            (voxelPos.y - playerPos.y) > -2.0) {
+                            return;
+                        }
+                        addBlock(voxelPos);
+                    }
+                }
+            }
+        }
+
+
+        function initMaterials() {
+            BLOCKS.forEach(block => {
+                const tex = createProceduralTexture(block);
+                const matOptions = { 
+                    map: tex, 
+                    transparent: block.style === 'leaves' ? true : false, 
+                    opacity: block.style === 'leaves' ? 0.9 : 1.0,
+                    side: THREE.DoubleSide 
+                };
+                const mat = new THREE.MeshLambertMaterial(matOptions);
+
+                if (block.style === 'grass') {
+                    const sideCanvas = document.createElement('canvas');
+                    sideCanvas.width = 64; sideCanvas.height = 64;
+                    const sCtx = sideCanvas.getContext('2d');
+                    sCtx.fillStyle = block.sideColor; sCtx.fillRect(0,0,64,64);
+                    sCtx.fillStyle = block.color; sCtx.fillRect(0,0,64,15);
+                    sCtx.fillStyle = 'rgba(0,0,0,0.2)';
+                    for(let i=0; i<50; i++) sCtx.fillRect(Math.random()*64, Math.random()*64, 2, 2);
+                    const sideTex = new THREE.CanvasTexture(sideCanvas);
+                    sideTex.magFilter = THREE.NearestFilter;
+                    
+                    materials[block.id] = [
+                        new THREE.MeshLambertMaterial({ map: sideTex }), 
+                        new THREE.MeshLambertMaterial({ map: sideTex }), 
+                        new THREE.MeshLambertMaterial({ map: tex }),     
+                        new THREE.MeshLambertMaterial({ map: createProceduralTexture({color: block.sideColor, style:'dirt'}) }), 
+                        new THREE.MeshLambertMaterial({ map: sideTex }), 
+                        new THREE.MeshLambertMaterial({ map: sideTex })  
+                    ];
+                } else {
+                    materials[block.id] = mat;
+                }
+            });
+        }
+
+        function initUI() {
+            const hotbar = document.getElementById('hotbar');
+            const hud = document.getElementById('hud');
+            
+            BLOCKS.forEach((block, index) => {
+                const slot = document.createElement('div');
+                slot.className = index === 0 ? 'slot active' : 'slot';
+                slot.dataset.index = index;
+                const key = document.createElement('span');
+                key.className = 'slot-key';
+                key.textContent = index + 1;
+                slot.appendChild(key);
+                const preview = document.createElement('div');
+                preview.className = 'slot-preview';
+                preview.style.backgroundColor = block.color;
+                if(block.style === 'leaves') preview.style.opacity = 0.8;
+                slot.appendChild(preview);
+                hotbar.appendChild(slot);
+            });
+
+            window.updateHUD = () => {
+                const weapon = WEAPONS[selectedWeaponIndex];
+                hud.textContent = `Weapon: ${weapon.name} | Block: ${BLOCKS[selectedBlockIndex].name}`;
+                
+                const crosshair = document.getElementById('crosshair');
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    #crosshair::before, #crosshair::after { background: ${weapon.color} !important; }
+                `;
+                document.head.appendChild(style);
+
+                document.querySelectorAll('.slot').forEach((el, idx) => {
+                    if(idx === selectedBlockIndex) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+            };
+            updateHUD();
+        }
+
+        function initWeaponsUI() {
+            const weaponBar = document.getElementById('weapon-bar');
+            WEAPONS.forEach((w, index) => {
+                const slot = document.createElement('div');
+                slot.className = index === 0 ? 'weapon-slot active' : 'weapon-slot';
+                slot.dataset.index = index;
+                
+                const key = document.createElement('span');
+                key.className = 'weapon-key';
+                key.textContent = index + 1;
+                
+                slot.appendChild(key);
+                slot.appendChild(document.createTextNode(w.name));
+                weaponBar.appendChild(slot);
+            });
+
+            window.updateWeaponUI = () => {
+                document.querySelectorAll('.weapon-slot').forEach((el, idx) => {
+                    if(idx === selectedWeaponIndex) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+                
+                drawWeaponTexture(WEAPONS[selectedWeaponIndex]);
+            };
+            updateWeaponUI();
+        }
+
+        function generateWorld() {
+            const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            const start = -CHUNK_SIZE/2;
+            const end = CHUNK_SIZE/2;
+
+            for (let x = start; x < end; x++) {
+                for (let z = start; z < end; z++) {
+                    const y = -1;
+
+                    const material = materials[1]; 
+                    const voxel = new THREE.Mesh(geometry, material);
+                    voxel.position.set(x, y, z); 
+                    voxel.castShadow = true;
+                    voxel.receiveShadow = true;
+                    scene.add(voxel);
+                    objects.push(voxel);
+
+                    if (Math.random() > 0.99 && x > -10 && x < 10 && z > -10 && z < 10) createTree(x, y+1, z);
+                    
+                    if (Math.random() > 0.998 && x > -30 && x < 30 && z > -30 && z < 30) {
+                        const r = Math.random();
+                        if(r < 0.4) new Mob('chicken', x, z);
+                        else if(r < 0.7) new Mob('sheep', x, z);
+                        else new Mob('cow', x, z);
+                    }
+                }
+            }
+        }
+
+        function createTree(x, y, z) {
+            const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            for(let i=0; i<4; i++) {
+                const trunk = new THREE.Mesh(geo, materials[4]); 
+                trunk.position.set(x, y+i, z);
+                trunk.castShadow = true;
+                trunk.receiveShadow = true;
+                scene.add(trunk);
+                objects.push(trunk);
+            }
+            const leafMat = materials[5]; 
+            for(let lx = x-1; lx <= x+1; lx++) {
+                for(let lz = z-1; lz <= z+1; lz++) {
+                    for(let ly = y+3; ly <= y+4; ly++) {
+                         if(lx===x && lz===z && ly===y+3) continue; 
+                         const leaf = new THREE.Mesh(geo, leafMat);
+                         leaf.position.set(lx, ly, lz);
+                         leaf.castShadow = true;
+                         leaf.receiveShadow = true;
+                         scene.add(leaf);
+                         objects.push(leaf);
+                    }
+                }
+            }
+        }
+
+        function onMouseClick(event) {
+            if (!controls.isLocked && !isMobile) return;
+
+            // Mobile calls simulateClick directly, but PC goes here
+            // Logic is duplicated to keep separation clear or we could unify.
+            // For simplicity, let's keep the PC logic here.
+
+            const weapon = WEAPONS[selectedWeaponIndex];
+
+            if (weapon.type === 'ranged') {
+                if (event.button === 0) {
+                    const dir = new THREE.Vector3();
+                    camera.getWorldDirection(dir);
+                    projectiles.push(new Arrow(camera.position.clone(), dir, weapon.damage, 'arrow'));
+                }
+                return; 
+            }
+
+            if (weapon.type === 'tool') {
+                if (event.button === 0) {
+                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                    const intersects = raycaster.intersectObjects(objects, true);
+                    if (intersects.length > 0) {
+                        scene.remove(intersects[0].object);
+                        const index = objects.indexOf(intersects[0].object);
+                        if (index > -1) objects.splice(index, 1);
+                    }
+                }
+                return; 
+            }
+
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersectObjects = [...objects];
+            mobs.forEach(m => intersectObjects.push(m.mesh));
+
+            const intersects = raycaster.intersectObjects(intersectObjects, true); 
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                
+                let object = intersect.object;
+                while(object.parent && object.parent.type !== 'Scene') {
+                    object = object.parent;
+                }
+                
+                if (object.userData && object.userData.type === 'mob') {
+                    if (event.button === 0) {
+                        object.userData.mobRef.hit(weapon.damage); 
+                    }
+                    return; 
+                }
+
+                if (event.button === 0) {
+                    scene.remove(intersect.object);
+                    const index = objects.indexOf(intersect.object);
+                    if (index > -1) objects.splice(index, 1);
+                } else if (event.button === 2) {
+                    const voxelPos = new THREE.Vector3();
+                    voxelPos.copy(intersect.object.position).add(intersect.face.normal);
+                    
+                    const playerPos = controls.getObject().position;
+                    if (Math.abs(voxelPos.x - playerPos.x) < 0.8 &&
+                        Math.abs(voxelPos.z - playerPos.z) < 0.8 &&
+                        (voxelPos.y - playerPos.y) < 0.5 && 
+                        (voxelPos.y - playerPos.y) > -2.0) {
+                        return;
+                    }
+                    addBlock(voxelPos);
+                }
+            }
+        }
+
+        function addBlock(position) {
+            const blockDef = BLOCKS[selectedBlockIndex];
+            const geometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            const material = materials[blockDef.id];
+            const voxel = new THREE.Mesh(geometry, material);
+            voxel.position.copy(position);
+            voxel.castShadow = true;
+            voxel.receiveShadow = true;
+            scene.add(voxel);
+            objects.push(voxel);
+        }
+
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': moveForward = true; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = true; break;
+                case 'ArrowRight': case 'KeyD': moveRight = true; break;
+                case 'ShiftLeft': case 'ShiftRight': sprint = true; break;
+                case 'Space': 
+                    if ( canJump === true && velocity.y >= -0.1 ) { 
+                        velocity.y = 12; 
+                        canJump = false;
+                    }
+                    break;
+                case 'Digit1': selectedBlockIndex = 0; updateHUD(); break;
+                case 'Digit2': selectedBlockIndex = 1; updateHUD(); break;
+                case 'Digit3': selectedBlockIndex = 2; updateHUD(); break;
+                case 'Digit4': selectedBlockIndex = 3; updateHUD(); break;
+                case 'Digit5': selectedBlockIndex = 4; updateHUD(); break;
+                case 'Digit6': selectedBlockIndex = 5; updateHUD(); break;
+                case 'Digit7': selectedBlockIndex = 6; updateHUD(); break;
+                case 'Digit8': selectedBlockIndex = 7; updateHUD(); break;
+                case 'Digit9': selectedBlockIndex = 8; updateHUD(); break;
+                case 'Digit0': selectedBlockIndex = 9; updateHUD(); break;
+                case 'Numpad1': selectedWeaponIndex = 0; updateHUD(); updateWeaponUI(); break;
+                case 'Numpad2': selectedWeaponIndex = 1; updateHUD(); updateWeaponUI(); break;
+                case 'Numpad3': selectedWeaponIndex = 2; updateHUD(); updateWeaponUI(); break;
+                case 'Numpad4': selectedWeaponIndex = 3; updateHUD(); updateWeaponUI(); break;
+                case 'Numpad5': selectedWeaponIndex = 4; updateHUD(); updateWeaponUI(); break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': moveForward = false; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = false; break;
+                case 'ArrowRight': case 'KeyD': moveRight = false; break;
+                case 'ShiftLeft': case 'ShiftRight': sprint = false; break;
+            }
+        }
+
+        function onMouseWheel(event) {
+            if (event.deltaY > 0) {
+                selectedBlockIndex = (selectedBlockIndex + 1) % 10;
+            } else {
+                selectedBlockIndex = (selectedBlockIndex - 1 + 10) % 10;
+            }
+            updateHUD();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = Math.min((time - prevTime) / 1000, 0.1);
+
+            // Update Projectiles
+            for(let i = projectiles.length - 1; i >= 0; i--) {
+                projectiles[i].update(delta);
+            }
+
+            // Update Mobs
+            mobs.forEach(mob => mob.update(delta));
+
+            if (controls.isLocked === true || isMobile) {
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+                velocity.y -= 40.0 * delta; 
+
+                const currentSpeed = sprint ? 8.0 : 4.0;
+                const speed = currentSpeed * delta;
+
+                let moveX = 0;
+                let moveZ = 0;
+                if (moveLeft) moveX -= 1;
+                if (moveRight) moveX += 1;
+                if (moveForward) moveZ += 1;
+                if (moveBackward) moveZ -= 1;
+
+                if (moveX !== 0) {
+                    controls.moveRight(moveX * speed);
+                    const pos = controls.getObject().position.clone();
+                    const ray = new THREE.Raycaster(pos, new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), 0, 0.5);
+                    const hits = ray.intersectObjects(objects);
+                    if (hits.length > 0) controls.moveRight(-moveX * speed);
+                }
+
+                if (moveZ !== 0) {
+                    controls.moveForward(moveZ * speed);
+                    const pos = controls.getObject().position.clone();
+                    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    const ray = new THREE.Raycaster(pos, dir, 0, 0.5);
+                    const hits = ray.intersectObjects(objects);
+                    if (hits.length > 0) controls.moveForward(-moveZ * speed);
+                }
+
+                const playerPos = controls.getObject().position.clone();
+                playerPos.y -= 0.1; 
+                const downRay = new THREE.Raycaster(playerPos, new THREE.Vector3(0, -1, 0), 0, 10); 
+                const hits = downRay.intersectObjects(objects);
+
+                if (hits.length > 0) {
+                    const hit = hits[0];
+                    if (hit.distance <= 1.6 && velocity.y <= 0 && hit.face.normal.y > 0.5) {
+                        controls.getObject().position.y = hit.point.y + 1.6;
+                        velocity.y = Math.max(0, velocity.y);
+                        canJump = true;
+                    }
+                }
+                
+                controls.getObject().position.y += velocity.y * delta;
+
+                if (controls.getObject().position.y < -20) {
+                    velocity.y = 0;
+                    controls.getObject().position.set(0, 5, 0);
+                    canJump = false;
+                }
+
+                // Highlight Box
+                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                const intersects = raycaster.intersectObjects(objects);
+                if (intersects.length > 0) {
+                    const intersect = intersects[0];
+                    rollOverMesh.position.copy(intersect.object.position);
+                    rollOverMesh.visible = true;
+                } else {
+                    rollOverMesh.visible = false;
+                }
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>

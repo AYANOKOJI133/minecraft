@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Critical for Mobile: Prevents zooming and handles the notch/screen edges -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Voxel Builder 3D - Fixed Mobile</title>
+    <title>Voxel Builder 3D - Mobile Force</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -12,7 +11,7 @@
             --ui-bg: rgba(0, 0, 0, 0.7);
             --ui-border: 2px solid rgba(255, 255, 255, 0.4);
             --selected: #ffeb3b;
-            --mobile-btn-bg: rgba(255, 255, 255, 0.2);
+            --mobile-btn-bg: rgba(0, 0, 0, 0.5); /* Darker for visibility */
             --mobile-btn-active: rgba(255, 255, 255, 0.5);
         }
 
@@ -26,7 +25,6 @@
             font-family: 'VT323', monospace;
             user-select: none;
             -webkit-user-select: none;
-            /* Critical: Stop browser from handling swipes */
             touch-action: none; 
             overscroll-behavior: none;
         }
@@ -167,7 +165,7 @@
             align-items: center;
             color: white;
             pointer-events: auto;
-            z-index: 20;
+            z-index: 20; /* Above mobile controls */
             text-align: center;
             touch-action: none;
         }
@@ -181,11 +179,11 @@
 
         /* --- MOBILE CONTROLS --- */
         #mobile-controls {
-            display: none; /* Hidden by default on PC */
+            display: none; /* Hidden by default, forced by JS */
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 12;
-            pointer-events: none; /* Let touches pass through to specific buttons */
+            z-index: 12; /* Below Menu, Above Game */
+            pointer-events: none; 
         }
 
         .touch-zone {
@@ -203,13 +201,14 @@
             position: absolute;
             width: 50px; height: 50px;
             background: var(--mobile-btn-bg);
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.6); /* Brighter border */
             border-radius: 8px;
             backdrop-filter: blur(2px);
             display: flex; justify-content: center; align-items: center;
             color: white; font-size: 24px;
             user-select: none;
             touch-action: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
         .dpad-btn:active, .dpad-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
         #btn-up { top: 0; left: 50%; transform: translateX(-50%); }
@@ -226,7 +225,7 @@
         .action-btn {
             width: 60px; height: 60px;
             background: var(--mobile-btn-bg);
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.6);
             border-radius: 50%;
             backdrop-filter: blur(2px);
             color: white; font-size: 14px;
@@ -234,11 +233,12 @@
             display: flex; justify-content: center; align-items: center;
             text-align: center;
             touch-action: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
         .action-btn:active, .action-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
         
-        .btn-attack { background: rgba(255, 50, 50, 0.3); border-color: rgba(255, 100, 100, 0.5); }
-        .btn-build { background: rgba(50, 255, 50, 0.3); border-color: rgba(100, 255, 100, 0.5); }
+        .btn-attack { background: rgba(200, 50, 50, 0.6); border-color: rgba(255, 100, 100, 0.8); }
+        .btn-build { background: rgba(50, 200, 50, 0.6); border-color: rgba(100, 255, 100, 0.8); }
 
         /* Mobile Top Bar */
         #mobile-top-bar {
@@ -255,16 +255,7 @@
             font-size: 18px;
             border-radius: 4px;
             touch-action: manipulation;
-        }
-
-        /* Show mobile controls only on touch devices */
-        @media (hover: none) and (pointer: coarse) {
-            #mobile-controls { display: block; }
-            #weapon-bar { display: none; }
-            #weapon-view { bottom: auto; top: 60px; right: 10px; width: 80px; height: 80px; }
-            #weapon-canvas { width: 80px; height: 80px; }
-            #hotbar { display: none; }
-            #crosshair { width: 20px; height: 20px; }
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
     </style>
     <script type="importmap">
@@ -280,7 +271,7 @@
 
     <div id="game-container"></div>
 
-    <!-- Mobile Touch UI (Hidden on PC) -->
+    <!-- Mobile Touch UI (Hidden by default, shown by JS) -->
     <div id="mobile-controls">
         <div id="mobile-top-bar" class="touch-zone">
             <button id="m-switch-weapon" class="mobile-menu-btn">WEAPON</button>
@@ -368,8 +359,24 @@
         
         const materials = {};
         
-        // Robust Mobile Detection
+        // Robust Detection & Force UI
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
+        if (isMobile) {
+            // Force display of mobile controls
+            document.getElementById('mobile-controls').style.display = 'block';
+            // Hide PC UI
+            document.getElementById('hotbar').style.display = 'none';
+            document.getElementById('weapon-bar').style.display = 'none';
+            // Adjust Mobile Weapon View
+            const wv = document.getElementById('weapon-view');
+            wv.style.bottom = 'auto';
+            wv.style.top = '60px';
+            wv.style.right = '10px';
+            wv.style.width = '80px';
+            wv.style.height = '80px';
+            const wc = document.getElementById('weapon-canvas');
+            wc.width = 80; wc.height = 80;
+        }
 
         // --- Texture Generator ---
         function createProceduralTexture(blockDef) {
@@ -813,7 +820,7 @@
             scene.add(rollOverMesh);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for mobile performance
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -835,54 +842,38 @@
             animate();
         }
 
-        // --- Mobile Touch Logic (Fixed) ---
         function setupTouchControls() {
             const container = document.getElementById('game-container');
             let touchStartX = 0;
             let touchStartY = 0;
 
-            // 1. Camera Look (Touch anywhere except buttons)
             container.addEventListener('touchstart', (e) => {
                 if(e.target.closest('.touch-zone')) return;
-                
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
             }, {passive: false});
 
             container.addEventListener('touchmove', (e) => {
-                // Only handle look if we are not touching a button
                 if(e.target.closest('.touch-zone')) return;
 
                 const touch = e.touches[0];
                 const deltaX = touch.clientX - touchStartX;
                 const deltaY = touch.clientY - touchStartY;
 
-                // SENSITIVITY
                 const sensitivity = 0.005;
 
-                // Rotate the BODY (Pivot) for Left/Right
-                // This fixes the bug where walking forward didn't match the view direction
                 const controlsObj = controls.getObject();
                 controlsObj.rotation.y -= deltaX * sensitivity;
-
-                // Rotate the HEAD (Camera) for Up/Down
                 camera.rotation.x -= deltaY * sensitivity;
-                
-                // Clamp Pitch
                 camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
 
                 touchStartX = touch.clientX;
                 touchStartY = touch.clientY;
-                
-                // Stop page scrolling
                 e.preventDefault();
             }, {passive: false});
 
-            container.addEventListener('touchend', () => {
-                // Optional: Reset logic if needed
-            });
+            container.addEventListener('touchend', () => {});
 
-            // 2. D-Pad Movement
             const bindBtn = (id, callbackStart, callbackEnd) => {
                 const el = document.getElementById(id);
                 el.addEventListener('touchstart', (e) => { 
@@ -907,7 +898,6 @@
             bindBtn('btn-left', () => moveLeft = true, () => moveLeft = false);
             bindBtn('btn-right', () => moveRight = true, () => moveRight = false);
 
-            // 3. Action Buttons
             bindBtn('btn-jump', () => {
                 if (canJump && velocity.y >= -0.1) {
                     velocity.y = 12;
@@ -918,7 +908,6 @@
             bindBtn('btn-attack', () => { simulateClick(0); }, () => {});
             bindBtn('btn-build', () => { simulateClick(2); }, () => {});
 
-            // 4. Inventory Buttons
             document.getElementById('m-switch-weapon').addEventListener('click', () => {
                 selectedWeaponIndex = (selectedWeaponIndex + 1) % WEAPONS.length;
                 updateHUD(); updateWeaponUI();
@@ -931,7 +920,6 @@
         }
 
         function simulateClick(button) {
-            // Direct logic call for mobile buttons
             const weapon = WEAPONS[selectedWeaponIndex];
 
             if (weapon.type === 'ranged') {

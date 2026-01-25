@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Voxel Builder 3D - Mobile Force</title>
+    <title>Voxel Builder 3D - Reliable Fix</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
         :root {
             --ui-bg: rgba(0, 0, 0, 0.7);
-            --ui-border: 2px solid rgba(255, 255, 255, 0.4);
             --selected: #ffeb3b;
-            --mobile-btn-bg: rgba(0, 0, 0, 0.5); /* Darker for visibility */
-            --mobile-btn-active: rgba(255, 255, 255, 0.5);
+            --mobile-btn-bg: rgba(0, 0, 0, 0.6); 
+            --mobile-btn-active: rgba(255, 255, 255, 0.6);
         }
 
         html, body {
@@ -36,6 +35,7 @@
             width: 100%;
             height: 100%;
             z-index: 1;
+            touch-action: none;
         }
 
         #ui-layer {
@@ -44,12 +44,33 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+            pointer-events: none; 
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             z-index: 10;
         }
+
+        /* --- Crosshair & HUD --- */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.9);
+        }
+        #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+        #crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+
+        #hud { position: absolute; top: 15px; left: 15px; color: white; font-size: 24px; text-shadow: 2px 2px 0 #000; pointer-events: none; }
 
         /* --- Weapon View --- */
         #weapon-view {
@@ -62,48 +83,23 @@
             z-index: 15;
             pointer-events: none;
         }
-        #weapon-canvas {
-            width: 128px;
-            height: 128px;
-            image-rendering: pixelated;
-        }
+        #weapon-canvas { width: 128px; height: 128px; image-rendering: pixelated; }
 
-        /* --- Crosshair --- */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 24px;
-            height: 24px;
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            pointer-events: none;
-        }
-        #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(255,255,255,0.9);
-            transition: background 0.2s;
-        }
-        #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
-        #crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
-
-        /* --- PC HUD --- */
+        /* --- PC UI --- */
         #hotbar {
             align-self: center;
             margin-bottom: 20px;
             background: var(--ui-bg);
-            border: var(--ui-border);
+            border: 2px solid rgba(255,255,255,0.4);
             padding: 8px;
             border-radius: 6px;
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
             pointer-events: auto;
-            backdrop-filter: blur(4px);
-            max-width: 90%;
-            justify-content: center;
         }
+        .slot { width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.1); display: flex; justify-content: center; align-items: center; color: white; background: rgba(0,0,0,0.3); font-size: 16px; }
+        .slot.active { border-color: var(--selected); transform: scale(1.2); background: rgba(50,50,50,0.8); }
 
         #weapon-bar {
             position: absolute;
@@ -111,152 +107,137 @@
             top: 50%;
             transform: translateY(-50%);
             background: var(--ui-bg);
-            border: var(--ui-border);
+            border: 2px solid rgba(255,255,255,0.4);
             padding: 10px;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
             gap: 10px;
             pointer-events: auto;
-            backdrop-filter: blur(4px);
         }
+        .weapon-slot { display: flex; align-items: center; color: white; font-size: 20px; padding: 5px 10px; border-radius: 4px; background: rgba(0,0,0,0.3); border: 1px solid white; }
+        .weapon-slot.active { background: rgba(50, 50, 50, 0.8); border-color: var(--selected); }
 
-        .weapon-slot {
-            display: flex;
-            align-items: center;
-            color: white;
-            font-size: 20px;
-            padding: 5px 10px;
-            border-radius: 4px;
-            background: rgba(0,0,0,0.3);
-            border: 2px solid rgba(255,255,255,0.1);
-            transition: all 0.1s ease;
-        }
-        .weapon-slot.active { background: rgba(50, 50, 50, 0.8); border-color: var(--selected); transform: scale(1.05); box-shadow: 0 0 5px var(--selected); }
-        .weapon-key { font-size: 14px; color: #aaa; margin-right: 10px; font-weight: bold; }
-
-        .slot {
-            width: 40px;
-            height: 40px;
-            border: 2px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 16px;
-            position: relative;
-            background: rgba(0,0,0,0.3);
-            transition: all 0.1s ease;
-        }
-        .slot.active { border-color: var(--selected); transform: scale(1.2); background: rgba(50, 50, 50, 0.8); box-shadow: 0 0 10px var(--selected); z-index: 1; }
-        .slot-key { position: absolute; top: 1px; left: 2px; font-size: 12px; color: #aaa; font-weight: bold; }
-        .slot-preview { width: 24px; height: 24px; border: 1px solid rgba(0,0,0,0.5); }
-
+        /* --- Menu --- */
         #menu {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             color: white;
             pointer-events: auto;
-            z-index: 20; /* Above mobile controls */
+            z-index: 1000; 
             text-align: center;
             touch-action: none;
         }
-        #menu h1 { font-size: 48px; margin: 0 0 10px 0; text-shadow: 4px 4px 0 #000; color: #4CAF50; letter-spacing: 2px; }
+        #menu h1 { font-size: 48px; margin: 0; text-shadow: 4px 4px 0 #000; color: #4CAF50; }
         #menu p { font-size: 20px; line-height: 1.4; margin: 5px 0; color: #ddd; max-width: 80%; }
         #start-btn { margin-top: 20px; padding: 15px 50px; font-family: 'VT323', monospace; font-size: 32px; background: #4CAF50; color: white; border: none; border-bottom: 6px solid #2E7D32; cursor: pointer; touch-action: manipulation; }
         #start-btn:active { transform: translateY(6px); border-bottom: 0; }
         .hidden { display: none !important; }
 
-        #hud { position: absolute; top: 15px; left: 15px; color: white; font-size: 20px; text-shadow: 2px 2px 0 #000; pointer-events: none; }
-
         /* --- MOBILE CONTROLS --- */
         #mobile-controls {
-            display: none; /* Hidden by default, forced by JS */
+            display: none; /* Hidden by default */
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 12; /* Below Menu, Above Game */
-            pointer-events: none; 
+            z-index: 50; 
+            pointer-events: none;
         }
 
         .touch-zone {
             position: absolute;
-            pointer-events: auto;
-            touch-action: none;
+            pointer-events: auto; /* Re-enable clicks here */
+            touch-action: manipulation; 
         }
 
-        /* D-PAD (Left) */
+        /* D-PAD */
         #dpad-container {
-            bottom: 40px; left: 20px;
-            width: 160px; height: 160px;
+            bottom: 30px; left: 20px;
+            width: 180px; height: 180px;
         }
         .dpad-btn {
             position: absolute;
-            width: 50px; height: 50px;
+            width: 70px; height: 70px; 
             background: var(--mobile-btn-bg);
-            border: 2px solid rgba(255,255,255,0.6); /* Brighter border */
-            border-radius: 8px;
-            backdrop-filter: blur(2px);
+            border: 2px solid rgba(255,255,255,0.8);
+            border-radius: 10px;
             display: flex; justify-content: center; align-items: center;
-            color: white; font-size: 24px;
-            user-select: none;
-            touch-action: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            color: white; font-size: 32px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
         }
-        .dpad-btn:active, .dpad-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
+        .dpad-btn:active, .dpad-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); border-color: white; }
         #btn-up { top: 0; left: 50%; transform: translateX(-50%); }
         #btn-down { bottom: 0; left: 50%; transform: translateX(-50%); }
         #btn-left { left: 0; top: 50%; transform: translateY(-50%); }
         #btn-right { right: 0; top: 50%; transform: translateY(-50%); }
 
-        /* Action Buttons (Right) */
+        /* Action Buttons */
         #actions-container {
-            bottom: 40px; right: 20px;
-            width: 140px; height: 160px;
-            display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+            bottom: 30px; right: 20px;
+            width: 160px; height: 180px;
+            display: flex; flex-direction: column; gap: 15px; align-items: flex-end;
         }
         .action-btn {
-            width: 60px; height: 60px;
+            width: 70px; height: 70px;
             background: var(--mobile-btn-bg);
-            border: 2px solid rgba(255,255,255,0.6);
+            border: 2px solid rgba(255,255,255,0.8);
             border-radius: 50%;
-            backdrop-filter: blur(2px);
-            color: white; font-size: 14px;
-            font-weight: bold;
             display: flex; justify-content: center; align-items: center;
-            text-align: center;
-            touch-action: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            color: white; font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
         }
         .action-btn:active, .action-btn.active { background: var(--mobile-btn-active); transform: scale(0.95); }
-        
-        .btn-attack { background: rgba(200, 50, 50, 0.6); border-color: rgba(255, 100, 100, 0.8); }
-        .btn-build { background: rgba(50, 200, 50, 0.6); border-color: rgba(100, 255, 100, 0.8); }
+        .btn-attack { background: rgba(200, 50, 50, 0.7); border-color: red; }
+        .btn-build { background: rgba(50, 200, 50, 0.7); border-color: lime; }
 
-        /* Mobile Top Bar */
+        /* Top Mobile Bar */
         #mobile-top-bar {
             position: absolute;
             top: 10px; right: 10px;
             display: flex; gap: 10px;
         }
         .mobile-menu-btn {
-            padding: 8px 12px;
+            padding: 10px 15px;
             background: var(--ui-bg);
-            border: 1px solid white;
+            border: 2px solid white;
             color: white;
             font-family: 'VT323', monospace;
-            font-size: 18px;
+            font-size: 20px;
             border-radius: 4px;
-            touch-action: manipulation;
             box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
+
+        /* =========================================
+           FORCED SCREEN SIZE CHECK (THE FIX)
+           ========================================= */
+        
+        /* If screen is small (Phone/Tablet), Force Mobile UI */
+        @media screen and (max-width: 1024px) {
+            #mobile-controls { display: block !important; pointer-events: none; }
+            .touch-zone { pointer-events: auto; }
+
+            /* Hide PC UI */
+            #hotbar, #weapon-bar { display: none !important; }
+
+            /* Adjust Weapon View */
+            #weapon-view { top: 60px; bottom: auto; right: 10px; width: 80px; height: 80px; }
+            #weapon-canvas { width: 80px; height: 80px; }
+
+            /* Update Text */
+            #pc-instructions { display: none !important; }
+            #mobile-instructions { display: block !important; }
+        }
+        /* Otherwise (Large Screen), keep defaults */
+
     </style>
     <script type="importmap">
         {
@@ -271,7 +252,7 @@
 
     <div id="game-container"></div>
 
-    <!-- Mobile Touch UI (Hidden by default, shown by JS) -->
+    <!-- Mobile Touch UI -->
     <div id="mobile-controls">
         <div id="mobile-top-bar" class="touch-zone">
             <button id="m-switch-weapon" class="mobile-menu-btn">WEAPON</button>
@@ -296,7 +277,6 @@
         <div id="hud">Weapon: Fist</div>
         <div id="crosshair"></div>
         
-        <!-- PC UI Elements -->
         <div id="hotbar"></div>
         <div id="weapon-view"><canvas id="weapon-canvas" width="128" height="128"></canvas></div>
         <div id="weapon-bar"></div> 
@@ -304,8 +284,8 @@
 
     <div id="menu">
         <h1>VOXEL BUILDER</h1>
-        <p id="pc-instructions">WASD to Move | SHIFT to Sprint | SCROLL: Blocks | NUMPAD: Weapons<br>Left Click: Attack | Right Click: Build</p>
-        <p id="mobile-instructions" class="hidden">Touch & Drag to Look<br>Use Buttons to Move/Act</p>
+        <p id="pc-instructions">WASD to Move | Mouse to Look<br>Left Click: Attack | Right Click: Build</p>
+        <p id="mobile-instructions" class="hidden">Touch Drag to Look<br>Use Buttons to Move/Act</p>
         <button id="start-btn">START GAME</button>
     </div>
 
@@ -359,24 +339,9 @@
         
         const materials = {};
         
-        // Robust Detection & Force UI
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
-        if (isMobile) {
-            // Force display of mobile controls
-            document.getElementById('mobile-controls').style.display = 'block';
-            // Hide PC UI
-            document.getElementById('hotbar').style.display = 'none';
-            document.getElementById('weapon-bar').style.display = 'none';
-            // Adjust Mobile Weapon View
-            const wv = document.getElementById('weapon-view');
-            wv.style.bottom = 'auto';
-            wv.style.top = '60px';
-            wv.style.right = '10px';
-            wv.style.width = '80px';
-            wv.style.height = '80px';
-            const wc = document.getElementById('weapon-canvas');
-            wc.width = 80; wc.height = 80;
-        }
+        // --- Detection: We rely on Screen Width for Mobile UI, 
+        // but use Touch detection for Controls logic ---
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
         // --- Texture Generator ---
         function createProceduralTexture(blockDef) {
@@ -799,17 +764,23 @@
             const menu = document.getElementById('menu');
             const startBtn = document.getElementById('start-btn');
             
-            if(isMobile) {
-                document.getElementById('pc-instructions').classList.add('hidden');
-                document.getElementById('mobile-instructions').classList.remove('hidden');
-                startBtn.addEventListener('click', () => {
-                    menu.classList.add('hidden');
-                });
-            } else {
-                startBtn.addEventListener('click', () => controls.lock());
-                controls.addEventListener('lock', () => menu.classList.add('hidden'));
-                controls.addEventListener('unlock', () => menu.classList.remove('hidden'));
-            }
+            startBtn.addEventListener('click', () => {
+                menu.classList.add('hidden');
+                
+                // Reliable Check: Screen Width
+                // If width is small, we assume Mobile/Tablet. DON'T lock pointer.
+                if (window.innerWidth <= 1024) {
+                    console.log("Mobile/Tablet Mode (Width Check): No Pointer Lock");
+                    // Do NOT lock controls
+                } else {
+                    console.log("PC Mode: Pointer Lock");
+                    controls.lock();
+                }
+            });
+
+            // PC Pointer Lock Listeners
+            controls.addEventListener('lock', () => menu.classList.add('hidden'));
+            controls.addEventListener('unlock', () => menu.classList.remove('hidden'));
 
             raycaster = new THREE.Raycaster();
             raycaster.far = 8; 
@@ -832,7 +803,7 @@
             document.addEventListener('wheel', onMouseWheel);
             window.addEventListener('resize', onWindowResize);
 
-            if(isMobile) setupTouchControls();
+            if(isTouchDevice) setupTouchControls();
 
             initMaterials();
             initUI();
@@ -1030,12 +1001,9 @@
                 const slot = document.createElement('div');
                 slot.className = index === 0 ? 'slot active' : 'slot';
                 slot.dataset.index = index;
-                const key = document.createElement('span');
-                key.className = 'slot-key';
-                key.textContent = index + 1;
-                slot.appendChild(key);
                 const preview = document.createElement('div');
-                preview.className = 'slot-preview';
+                preview.style.width = '24px'; preview.style.height = '24px';
+                preview.style.border = '1px solid rgba(0,0,0,0.5)';
                 preview.style.backgroundColor = block.color;
                 if(block.style === 'leaves') preview.style.opacity = 0.8;
                 slot.appendChild(preview);
@@ -1067,12 +1035,6 @@
                 const slot = document.createElement('div');
                 slot.className = index === 0 ? 'weapon-slot active' : 'weapon-slot';
                 slot.dataset.index = index;
-                
-                const key = document.createElement('span');
-                key.className = 'weapon-key';
-                key.textContent = index + 1;
-                
-                slot.appendChild(key);
                 slot.appendChild(document.createTextNode(w.name));
                 weaponBar.appendChild(slot);
             });
@@ -1144,7 +1106,8 @@
         }
 
         function onMouseClick(event) {
-            if (!controls.isLocked && !isMobile) return;
+            // On PC, we check if locked. On Mobile, we never lock, so it's always active.
+            if (!controls.isLocked && window.innerWidth > 1024) return;
 
             const weapon = WEAPONS[selectedWeaponIndex];
 
@@ -1291,7 +1254,7 @@
 
             mobs.forEach(mob => mob.update(delta));
 
-            if (controls.isLocked === true || isMobile) {
+            if (controls.isLocked === true || window.innerWidth <= 1024) {
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
                 velocity.y -= 40.0 * delta; 

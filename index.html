@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Voxel Builder 3D - Instant Reset</title>
+    <title>Err Craft</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
+        /* --- CSS VARIABLES & COLORS --- */
         :root {
             --ui-bg: rgba(0, 0, 0, 0.7);
             --ui-border: 2px solid rgba(255, 255, 255, 0.4);
@@ -15,6 +16,7 @@
             --heart-lost: #441111;
         }
 
+        /* --- BODY & RESET --- */
         body {
             margin: 0;
             overflow: hidden;
@@ -23,6 +25,7 @@
             user-select: none;
         }
 
+        /* --- CONTAINERS --- */
         #game-container {
             position: absolute;
             top: 0;
@@ -43,7 +46,7 @@
             justify-content: space-between;
         }
 
-        /* --- Damage Flash Overlay --- */
+        /* --- DAMAGE EFFECT --- */
         #damage-overlay {
             position: absolute;
             top: 0;
@@ -60,7 +63,7 @@
             opacity: 0.4 !important;
         }
 
-        /* --- Stats HUD (Hearts & Level) --- */
+        /* --- STATS HUD (Hearts / Level / XP) --- */
         #stats-hud {
             position: absolute;
             bottom: 80px;
@@ -96,7 +99,6 @@
             margin-bottom: 2px;
         }
 
-        /* --- Experience Bar --- */
         #exp-bar-container {
             width: 300px;
             height: 10px;
@@ -114,7 +116,7 @@
             box-shadow: 0 0 5px #4CAF50;
         }
 
-        /* --- UI Elements --- */
+        /* --- INVENTORY & WEAPONS UI --- */
         #weapon-view {
             position: absolute;
             bottom: 20px;
@@ -182,6 +184,7 @@
             backdrop-filter: blur(4px);
         }
 
+        /* --- SLOT STYLING --- */
         .weapon-slot {
             display: flex;
             align-items: center;
@@ -235,6 +238,7 @@
             border: 1px solid rgba(0,0,0,0.5);
         }
 
+        /* --- MENU & OVERLAYS --- */
         #menu {
             position: absolute;
             top: 0;
@@ -285,6 +289,7 @@
             pointer-events: none;
         }
     </style>
+    <!-- --- IMPORT MAPS FOR THREE.JS --- -->
     <script type="importmap">
         {
             "imports": {
@@ -296,6 +301,7 @@
 </head>
 <body>
 
+    <!-- --- GAME LAYERS --- -->
     <div id="game-container"></div>
     <div id="damage-overlay"></div>
 
@@ -318,8 +324,9 @@
         <div id="weapon-bar"></div> 
     </div>
 
+    <!-- --- START MENU --- -->
     <div id="menu">
-        <h1>VOXEL BUILDER</h1>
+        <h1>ERR CRAFT</h1>
         <p>WASD to Move | SHIFT to Sprint</p>
         <p>NUMS 1-0: Switch Blocks</p>
         <p>SCROLL WHEEL: Switch Weapons</p>
@@ -327,14 +334,17 @@
         <button id="start-btn">START GAME</button>
     </div>
 
+    <!-- --- MAIN GAME SCRIPT --- -->
     <script type="module">
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
-        // --- Config ---
+        // --- CONFIGURATION & CONSTANTS ---
         const BLOCK_SIZE = 1;
         const CHUNK_SIZE = 64; 
         
+        // --- BLOCK DATA --- 
+        // Defines all block types, colors, and textures styles
         const BLOCKS = [
             { id: 1, name: 'Grass', color: '#5C9E63', sideColor: '#5C4033', style: 'grass' },
             { id: 2, name: 'Stone', color: '#7d7d7d', style: 'stone' },
@@ -348,6 +358,8 @@
             { id: 10, name: 'Obsidian', color: '#1a1028', style: 'obsidian' }
         ];
 
+        // --- WEAPON DATA ---
+        // Defines weapon stats like damage and type
         const WEAPONS = [
             { id: 0, name: 'Sword', damage: 50, range: 5, speed: 0, type: 'melee', color: '#ff4444' },
             { id: 1, name: 'Bow', damage: 30, range: 10, speed: 0, type: 'ranged', color: '#44ff44' }, 
@@ -356,11 +368,12 @@
             { id: 4, name: 'Crossbow', damage: 45, range: 15, speed: 0, type: 'ranged_heavy', color: '#885522' } 
         ];
 
+        // --- GLOBAL VARIABLES ---
         let camera, scene, renderer, controls;
         let raycaster;
-        const objects = [];
-        const mobs = []; 
-        const projectiles = []; 
+        const objects = []; // Stores all placeable blocks
+        const mobs = [];     // Stores all enemies
+        const projectiles = []; // Stores arrows, bolts, etc.
         let moveForward = false;
         let moveBackward = false;
         let moveLeft = false;
@@ -373,11 +386,12 @@
         
         let selectedBlockIndex = 0;
         let selectedWeaponIndex = 0;
-        let rollOverMesh; 
+        let rollOverMesh; // The wireframe box showing where we are looking
         
         const materials = {};
 
-        // --- RPG Stats State ---
+        // --- RPG STATS STATE ---
+        // Tracks player health, level, and experience
         const playerStats = {
             maxHp: 20, 
             hp: 20,
@@ -388,7 +402,8 @@
             isDead: false
         };
 
-        // --- Texture Generator ---
+        // --- TEXTURE GENERATOR ---
+        // Instead of loading images, we draw textures on the fly using Canvas API
         function createProceduralTexture(blockDef) {
             const size = 64;
             const canvas = document.createElement('canvas');
@@ -461,7 +476,8 @@
             return texture;
         }
 
-        // --- Weapon Texture Drawer (Canvas) ---
+        // --- WEAPON ICON DRAWER ---
+        // Draws weapon icons on 2D canvas based on weapon ID
         function drawWeaponTexture(weapon) {
             const canvas = document.getElementById('weapon-canvas');
             const ctx = canvas.getContext('2d');
@@ -552,8 +568,8 @@
             }
         }
 
-        // --- RPG System Functions ---
-
+        // --- RPG UI UPDATES ---
+        // Functions to update hearts and XP bar in DOM
         function initRPGUI() {
             updateHeartsUI();
             updateExpUI();
@@ -589,6 +605,7 @@
             if (playerStats.isDead) return;
             playerStats.xp += amount;
             
+            // Check for level up
             while (playerStats.xp >= playerStats.xpToNext) {
                 playerStats.xp -= playerStats.xpToNext;
                 playerStats.level++;
@@ -596,6 +613,7 @@
                 playerStats.maxHp += 2;
                 playerStats.hp = playerStats.maxHp; 
                 
+                // Visual flash for level up
                 const flash = document.createElement('div');
                 flash.style.position = 'absolute';
                 flash.style.top = '0'; flash.style.left = '0';
@@ -614,6 +632,7 @@
             playerStats.hp = Math.max(0, playerStats.hp - amount);
             updateHeartsUI();
 
+            // Red screen flash
             const overlay = document.getElementById('damage-overlay');
             overlay.classList.add('flash-active');
             setTimeout(() => {
@@ -629,10 +648,9 @@
             if (playerStats.isDead) return; 
             playerStats.isDead = true;
             
-            // Unlock controls so cursor shows
             controls.unlock();
 
-            // Brief delay for visual feedback, then restart
+            // Wait a bit then respawn
             setTimeout(() => {
                 playerRespawn();
             }, 300);
@@ -643,20 +661,19 @@
             playerStats.hp = playerStats.maxHp;
             playerStats.fallDistance = 0;
             
-            // Reset Position and Physics
+            // Reset player position and physics
             controls.getObject().position.set(0, 5, 0);
             velocity.set(0, 0, 0);
-            
-            // Reset Camera Rotation
             camera.rotation.set(0, 0, 0);
             
             updateHeartsUI();
             
-            // Show Menu
+            // Show menu again
             document.getElementById('menu').classList.remove('hidden');
         }
 
-        // --- Projectiles & Mobs ---
+        // --- PROJECTILE CLASSES ---
+        // Handles physics and movement of arrows, bolts, and magic projectiles
 
         // --- Projectile System: Normal Arrow ---
         class Arrow {
@@ -928,7 +945,8 @@
             }
         }
 
-        // --- Mob System ---
+        // --- MOB SYSTEM ---
+        // Handles creation, AI behavior, and health of mobs
         class Mob {
             constructor(type, x, z) {
                 this.type = type;
@@ -1037,6 +1055,7 @@
                 this.velocity.x *= 0.85;
                 this.velocity.z *= 0.85;
 
+                // Simple AI State Machine
                 if (this.timer > 2 + Math.random()) {
                     if (Math.random() > 0.5) {
                         this.state = 'walk';
@@ -1066,6 +1085,7 @@
                 this.mesh.position.x += this.velocity.x * delta * 10;
                 this.mesh.position.z += this.velocity.z * delta * 10;
 
+                // Gravity
                 const downRay = new THREE.Raycaster(this.mesh.position, new THREE.Vector3(0, -1, 0), 0, 10);
                 const groundHits = downRay.intersectObjects(objects);
                 
@@ -1099,10 +1119,12 @@
                 if (this.health <= 0) {
                     this.isDead = true;
                 } else {
+                    // Knockback effect
                     const dir = new THREE.Vector3();
                     dir.subVectors(this.mesh.position, controls.getObject().position).normalize();
                     dir.y = 0.1; 
                     this.velocity.add(dir.multiplyScalar(1.2)); 
+                    // Flash red on hit
                     this.meshParts.forEach(child => {
                         child.material.color.setHex(0xff0000);
                         setTimeout(() => {
@@ -1115,7 +1137,8 @@
             }
         }
 
-        // --- Init ---
+        // --- INITIALIZATION ---
+        // Sets up Three.js scene, camera, renderer, and event listeners
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
@@ -1124,6 +1147,7 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.y = 2;
 
+            // Lighting
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
@@ -1137,6 +1161,7 @@
             dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
             scene.add(dirLight);
 
+            // Controls
             controls = new PointerLockControls(camera, document.body);
             const menu = document.getElementById('menu');
             const startBtn = document.getElementById('start-btn');
@@ -1153,11 +1178,13 @@
             raycaster = new THREE.Raycaster();
             raycaster.far = 8; 
 
+            // Selection box cursor
             const rollOverGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
             const rollOverMat = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true, opacity: 0.4, transparent: true });
             rollOverMesh = new THREE.Mesh(rollOverGeo, rollOverMat);
             scene.add(rollOverMesh);
 
+            // WebGL Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1165,12 +1192,14 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.getElementById('game-container').appendChild(renderer.domElement);
 
+            // Event Listeners
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
             document.addEventListener('mousedown', onMouseClick);
             document.addEventListener('wheel', onMouseWheel);
             window.addEventListener('resize', onWindowResize);
 
+            // Setup everything else
             initMaterials();
             initUI();
             initWeaponsUI();
@@ -1286,6 +1315,7 @@
             const start = -CHUNK_SIZE/2;
             const end = CHUNK_SIZE/2;
 
+            // Generate the ground plane
             for (let x = start; x < end; x++) {
                 for (let z = start; z < end; z++) {
                     const y = -1;
@@ -1298,8 +1328,10 @@
                     scene.add(voxel);
                     objects.push(voxel);
 
+                    // Randomly place trees
                     if (Math.random() > 0.99 && x > -10 && x < 10 && z > -10 && z < 10) createTree(x, y+1, z);
                     
+                    // Randomly place mobs
                     if (Math.random() > 0.998 && x > -30 && x < 30 && z > -30 && z < 30) {
                         const r = Math.random();
                         if(r < 0.4) new Mob('chicken', x, z);
@@ -1336,47 +1368,57 @@
             }
         }
 
+        // --- INPUT HANDLING ---
         function onMouseClick(event) {
             if (!controls.isLocked || playerStats.isDead) return;
 
             const weapon = WEAPONS[selectedWeaponIndex];
 
+            // --- WEAPON ACTIONS (LEFT CLICK ONLY) ---
+            
+            // Magic: Teleportation Eye
             if (weapon.type === 'magic') {
                 if (event.button === 0) { 
                     const dir = new THREE.Vector3();
                     camera.getWorldDirection(dir);
                     projectiles.push(new EyeProjectile(camera.position.clone(), dir, controls));
                 }
-                return; 
+                // Only return for left click, allow right click to fall through to building
+                if (event.button === 0) return; 
             }
 
+            // Ranged: Normal Bow
             if (weapon.type === 'ranged') {
                 if (event.button === 0) {
                     const dir = new THREE.Vector3();
                     camera.getWorldDirection(dir);
                     projectiles.push(new Arrow(camera.position.clone(), dir, weapon.damage));
                 }
-                return; 
+                if (event.button === 0) return; 
             }
             
+            // Ranged Heavy: Crossbow
             if (weapon.type === 'ranged_heavy') {
                 if (event.button === 0) {
                     const dir = new THREE.Vector3();
                     camera.getWorldDirection(dir);
                     projectiles.push(new CrossbowBolt(camera.position.clone(), dir, weapon.damage));
                 }
-                return;
+                if (event.button === 0) return;
             }
 
+            // Throwable: Trident
             if (weapon.type === 'throwable') {
                 if (event.button === 0) {
                     const dir = new THREE.Vector3();
                     camera.getWorldDirection(dir);
                     projectiles.push(new TridentProjectile(camera.position.clone(), dir, weapon.damage));
                 }
-                return;
+                if (event.button === 0) return;
             }
 
+            // --- INTERACTIONS (Works for ALL weapons now) ---
+            // We check hits on objects (blocks) and mobs
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersectObjects = [...objects];
             mobs.forEach(m => intersectObjects.push(m.mesh));
@@ -1387,25 +1429,32 @@
                 const intersect = intersects[0];
                 
                 let object = intersect.object;
+                // Traverse up to find the root group (for mobs)
                 while(object.parent && object.parent.type !== 'Scene') {
                     object = object.parent;
                 }
                 
+                // --- LEFT CLICK: Attack/Mine ---
                 if (object.userData && object.userData.type === 'mob') {
                     if (event.button === 0) {
                         object.userData.mobRef.hit(weapon.damage); 
                     }
+                    // If we hit a mob with right click, don't build a block inside it
                     return; 
                 }
 
                 if (event.button === 0) {
+                    // Mine block
                     scene.remove(intersect.object);
                     const index = objects.indexOf(intersect.object);
                     if (index > -1) objects.splice(index, 1);
-                } else if (event.button === 2) {
+                } 
+                // --- RIGHT CLICK: Build (Now works with any weapon) ---
+                else if (event.button === 2) {
                     const voxelPos = new THREE.Vector3();
                     voxelPos.copy(intersect.object.position).add(intersect.face.normal);
                     
+                    // Prevent placing block inside player
                     const playerPos = controls.getObject().position;
                     if (Math.abs(voxelPos.x - playerPos.x) < 0.8 &&
                         Math.abs(voxelPos.z - playerPos.z) < 0.8 &&
@@ -1484,19 +1533,22 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
+        // --- MAIN GAME LOOP ---
         function animate() {
             requestAnimationFrame(animate);
 
             const time = performance.now();
             const delta = Math.min((time - prevTime) / 1000, 0.1);
 
+            // Update projectiles
             for(let i = projectiles.length - 1; i >= 0; i--) {
                 projectiles[i].update(delta);
             }
 
+            // Update mobs
             mobs.forEach(mob => mob.update(delta));
 
-            // --- Normal Gameplay Physics ---
+            // --- Player Physics & Controls ---
             if (controls.isLocked === true) {
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
@@ -1531,6 +1583,7 @@
 
                 const playerPos = controls.getObject().position.clone();
                 
+                // Fall damage calculation
                 if (velocity.y < 0) {
                     playerStats.fallDistance += (-velocity.y * delta);
                 }
@@ -1557,6 +1610,7 @@
                 
                 controls.getObject().position.y += velocity.y * delta;
 
+                // Respawn if fell off the world
                 if (controls.getObject().position.y < -20) {
                     takeDamage(20); 
                     velocity.y = 0;
@@ -1564,6 +1618,7 @@
                     canJump = false;
                 }
 
+                // Update block cursor
                 raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
                 const intersects = raycaster.intersectObjects(objects);
                 if (intersects.length > 0) {
@@ -1579,6 +1634,7 @@
             renderer.render(scene, camera);
         }
 
+        // --- START EVERYTHING ---
         init();
 
     </script>
